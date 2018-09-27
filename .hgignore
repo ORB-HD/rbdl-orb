@@ -8,6 +8,7 @@ doc/notes/*.pdf
 *Release/*
 *RelWithDebInfo/*
 *build/*
+*build2/*
 
 .*.swp
 CMakeFiles/*
