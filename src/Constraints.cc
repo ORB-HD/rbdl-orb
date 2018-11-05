@@ -1,6 +1,6 @@
 /*
  * RBDL - Rigid Body Dynamics Library
- * Copyright (c) 2011-2015 Martin Felis <martin@fysx.org>
+ * Copyright (c) 2011-2018 Martin Felis <martin@fysx.org>
  *
  * Licensed under the zlib license. See LICENSE for more details.
  */
@@ -64,7 +64,7 @@ unsigned int ConstraintSet::AddContactConstraint (
   X_p.push_back (SpatialTransform());
   X_s.push_back (SpatialTransform());
   constraintAxis.push_back (SpatialVector::Zero());
-  T_stab_inv.push_back (0.);
+  baumgarteParameters.push_back(Vector2d(0.0, 0.0));
   err.conservativeResize(n_constr);
   err[n_constr - 1] = 0.;
   errd.conservativeResize(n_constr);
@@ -88,43 +88,15 @@ unsigned int ConstraintSet::AddContactConstraint (
 }
 
 unsigned int ConstraintSet::AddLoopConstraint (
-  unsigned int id_predecessor,
-  unsigned int id_successor,
-  const Math::SpatialTransform &X_predecessor,
-  const Math::SpatialTransform &X_successor,
-  const Math::SpatialVector& axis,
-  double T_stabilization,
-  const char *constraint_name
-  ) {
-  return AddLoopConstraint (
-      id_predecessor,
-      id_successor,
-      X_predecessor,
-      X_successor,
-      axis,
-      true,
-      T_stabilization,
-      constraint_name);
-}
-
-unsigned int ConstraintSet::AddLoopConstraint (
   unsigned int id_predecessor, 
   unsigned int id_successor,
   const Math::SpatialTransform &X_predecessor,
   const Math::SpatialTransform &X_successor,
-  const Math::SpatialVector& axis,
-  bool baumgarte_enabled,
-  double T_stabilization,
+  const Math::SpatialVector &axis,
+  bool enable_stabilization,
+  const double stabilization_param,
   const char *constraint_name
   ) {
-
-  if (baumgarte_enabled && T_stabilization == 0.) {
-    std::cerr << "Error: Given T_stab_inv is 0, but this would cause the "
-                 "stabilization parameter to be INF which is forbidden."
-              << std::endl;
-    abort();
-  }
-
   assert (bound == false);
 
   unsigned int n_constr = size() + 1;
@@ -144,11 +116,19 @@ unsigned int ConstraintSet::AddLoopConstraint (
   X_p.push_back (X_predecessor);
   X_s.push_back (X_successor);
   constraintAxis.push_back (axis);
-  if (baumgarte_enabled) {
-    T_stab_inv.push_back (1. / T_stabilization);
-  } else {
-    T_stab_inv.push_back (0.);
+
+  // Set up constraint stabilization
+  double baumgarte_coefficient = 0.0;
+  if (enable_stabilization) {
+    if (stabilization_param == 0.0) {
+      std::cerr << "Error: Baumgarte stabilization is enabled but the stabilization parameter is 0.0" << std::endl;
+      abort();
+    }
+    baumgarte_coefficient = 1.0 / stabilization_param;
   }
+  baumgarteParameters.push_back(
+      Vector2d(baumgarte_coefficient, baumgarte_coefficient));
+
   err.conservativeResize(n_constr);
   err[n_constr - 1] = 0.;
   errd.conservativeResize(n_constr);
@@ -177,24 +157,15 @@ unsigned int ConstraintSet::AddLoopConstraint (
   return n_constr - 1;
 }
 
-
 unsigned int ConstraintSet::AddCustomConstraint(
-        CustomConstraint *customConstraint,
-        unsigned int id_predecessor,
-        unsigned int id_successor,
-        const Math::SpatialTransform &X_predecessor,
-        const Math::SpatialTransform &X_successor,
-        bool baumgarte_enabled,
-        double T_stabilization,
-        const char *constraint_name)
-{
-  if (baumgarte_enabled && T_stabilization == 0.) {
-    std::cerr << "Error: Given T_stab_inv is 0, but this would cause the "
-                 "stabilization parameter to be INF which is forbidden."
-              << std::endl;
-    abort();
-  }
-
+  CustomConstraint *customConstraint,
+  unsigned int id_predecessor,
+  unsigned int id_successor,
+  const Math::SpatialTransform &X_predecessor,
+  const Math::SpatialTransform &X_successor,
+  bool enable_stabilization,
+  const double stabilization_param,
+  const char *constraint_name) {
   assert (bound == false);
 
   unsigned int n_constr_start_idx = size();
@@ -222,11 +193,19 @@ unsigned int ConstraintSet::AddCustomConstraint(
       X_p.push_back (X_predecessor);
       X_s.push_back (X_successor);
       constraintAxis.push_back (axis);
-      if (baumgarte_enabled) {
-        T_stab_inv.push_back (1. / T_stabilization);
-      } else {
-        T_stab_inv.push_back (0.);
+
+      // Set up constraint stabilization
+      double baumgarte_coefficient = 0.0;
+      if (enable_stabilization) {
+        if (stabilization_param == 0.0) {
+          std::cerr << "Error: Baumgarte stabilization is enabled but the stabilization parameter is 0.0" << std::endl;
+          abort();
+        }
+        baumgarte_coefficient = 1.0 / stabilization_param;
       }
+      baumgarteParameters.push_back(
+          Vector2d(baumgarte_coefficient, baumgarte_coefficient));
+
       // These variables will not be used in CustomConstraints but are kept
       // so that the indexing across all of the ConstraintSet variables
       // remains preserved.
@@ -678,7 +657,7 @@ void CalcConstraintsJacobian (
     const unsigned int rows= CS.mCustomConstraints[i]->mConstraintCount;
     const unsigned int cols= CS.G.cols();
     CS.mCustomConstraints[i]->CalcConstraintsJacobianAndConstraintAxis(
-                                 model,cci,Q,CS,CS.G, cci,0);
+                                 model,cci,Q,CS,G, cci,0);
   }
 }
 
@@ -812,8 +791,8 @@ void CalcConstrainedSystemVariables (
       // Right hand side term.
       = - axis.dot(acc_s - acc_p) - axis_dot.dot(vel_s - vel_p)
       // Baumgarte stabilization term.
-      - 2. * CS.T_stab_inv[c] * CS.errd[c]
-      - CS.T_stab_inv[c] * CS.T_stab_inv[c] * CS.err[c];
+      - 2. * CS.baumgarteParameters[c][0] * CS.errd[c]
+      - CS.baumgarteParameters[c][1] * CS.baumgarteParameters[c][1] * CS.err[c];
   }
 
   unsigned int ccid,rows,cols,z;
@@ -826,8 +805,9 @@ void CalcConstrainedSystemVariables (
                                         CS.gamma,ccid);
     for(unsigned int j=0; j<CS.mCustomConstraints[i]->mConstraintCount;j++){
       z = ccid+j;
-      CS.gamma[z] += (- 2. * CS.T_stab_inv[z] * CS.errd[z]
-                      - CS.T_stab_inv[z] * CS.T_stab_inv[z] * CS.err[z]);
+      CS.gamma[z] += (- 2. * CS.baumgarteParameters[z][0] * CS.errd[z]
+                      - CS.baumgarteParameters[z][1] 
+                      * CS.baumgarteParameters[z][1] * CS.err[z]);
     }
 
   }

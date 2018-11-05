@@ -19,6 +19,7 @@
 #include <cmath>
 #include <assert.h>
 #include <algorithm>
+#include <string.h>
 
 #include "compileassert.h"
 #include "SimpleMathBlock.h"
@@ -78,6 +79,12 @@ class Matrix {
 			for (i = 0; i < nrows * ncols; i++)
 				mData[i] = matrix.mData[i];
 		}
+		Matrix(unsigned int _nrows, unsigned int _ncols, const value_type* values) {
+			assert(nrows == _nrows);
+			assert(ncols == _ncols);
+			memcpy (mData, values, sizeof(value_type) * nrows * ncols);
+		}
+
 		Matrix& operator=(const Matrix &matrix) {
 			if (this != &matrix) {
 				unsigned int i;
@@ -145,8 +152,29 @@ class Matrix {
 	 	~Matrix() {};
 
 		Matrix (
+				const val_type &v00, const val_type &v01
+				) {
+			COMPILE_ASSERT (nrows * ncols == 2);
+			assert (nrows == 2);
+			assert (ncols == 1);
+
+			mData[0] = v00;
+			mData[1] = v01;
+		}
+
+		void set(
+				const val_type &v00, const val_type &v01
+				) {
+			COMPILE_ASSERT (nrows * ncols == 2);
+
+			mData[0] = v00;
+			mData[1] = v01;
+		}
+
+		Matrix (
 				const val_type &v00, const val_type &v01, const val_type &v02
 				) {
+			COMPILE_ASSERT (nrows * ncols == 3);
 			assert (nrows == 3);
 			assert (ncols == 1);
 
@@ -572,6 +600,17 @@ class Matrix {
 			return result;
 		}
 
+		static matrix_type Random (int rows = 1, int cols = 1) {
+			matrix_type result;
+			for (int i = 0; i < nrows; i++) {
+				for (int j = 0; j < ncols; j++) {
+					result(i,j) = (static_cast<value_type>(rand()) / static_cast<value_type>(RAND_MAX)) * 2.0 - 1.0;
+				}
+			}
+
+			return result;
+		}
+
 		void identity() {
 			COMPILE_ASSERT (nrows == ncols);
 
@@ -735,13 +774,13 @@ class Matrix {
 			return result;
 		}
 
-    // Multiplication with a block
+		// Multiplication with a block
 		template <typename other_matrix_type>
 		Dynamic::Matrix<val_type> operator*(const Block<other_matrix_type, val_type> &block) {
 			assert (ncols == block.rows());
 
 			Dynamic::Matrix<val_type> result(nrows, block.cols());
-			
+
 			result.setZero();
 
 			unsigned int i,j, k;
@@ -752,7 +791,7 @@ class Matrix {
 					}
 				}
 			}
-			
+
 			return result;
 		}
 

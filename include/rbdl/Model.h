@@ -1,6 +1,6 @@
 /*
  * RBDL - Rigid Body Dynamics Library
- * Copyright (c) 2011-2016 Martin Felis <martin@fysx.org>
+ * Copyright (c) 2011-2018 Martin Felis <martin@fysx.org>
  *
  * Licensed under the zlib license. See LICENSE for more details.
  */
@@ -84,7 +84,7 @@ namespace RigidBodyDynamics {
  * the first joint.
  *
  * Once this is done, the model structure can be used with the functions of \ref
- * kinematics_group, \ref dynamics_group, \ref contacts_page, to perform
+ * kinematics_group, \ref dynamics_group, \ref constraints_group, to perform
  * computations.
  *
  * A simple example can be found \ref SimpleExample "here".
@@ -223,6 +223,7 @@ struct RBDL_DLLAPI Model {
   std::vector<Math::SpatialRigidBodyInertia> I;
   std::vector<Math::SpatialRigidBodyInertia> Ic;
   std::vector<Math::SpatialVector> hc;
+  std::vector<Math::SpatialVector> hdotc;
 
   ////////////////////////////////////
   // Bodies

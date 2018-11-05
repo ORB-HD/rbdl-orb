@@ -1,6 +1,6 @@
 /*
  * RBDL - Rigid Body Dynamics Library
- * Copyright (c) 2011-2015 Martin Felis <martin@fysx.org>
+ * Copyright (c) 2011-2018 Martin Felis <martin@fysx.org>
  *
  * Licensed under the zlib license. See LICENSE for more details.
  */
@@ -13,7 +13,7 @@
 
 namespace RigidBodyDynamics {
 
-/** \page contacts_page External Constraints
+/** \page constraints_page Constraints
  *
  * All functions related to contacts are specified in the \ref
  * constraints_group "Constraints Module".
@@ -192,7 +192,7 @@ namespace RigidBodyDynamics {
  * - CalcAssemblyQ()
  * - CalcAssemblyQDot()
  *
- * \subsection baumgarte_stabilization Baumgarte stabilization
+ * \subsection baumgarte_stabilization Baumgarte Stabilization
  *
  * The constrained dynamic equations are correct at the acceleration level
  * but will drift at the velocity and position level during numerical 
@@ -226,14 +226,27 @@ namespace RigidBodyDynamics {
  \right)
  * \f] A term \f$\gamma _{stab}\f$ is added to the right hand side of the
  * equation, defined in the following way: \f[
-   \gamma _{stab} = 
-   - \frac{2}{T_{stab}} \dot{\phi} (q)
-   - \left(\frac{1}{T_{stab}} \right)^2 \phi (q)
+   \gamma _{stab} = - 2 \alpha \dot{\phi} (q) - \beta^2 \phi (q)
  * \f] where \f$\phi (q)\f$ are the position level constraint errors and 
- * \f$T_{stab}\f$ is a tuning coefficient. The value of \f$T_{stab}\f$ must
- * be chosen carefully. If it is too large the stabilization will not be able
- * to compensate the errors and the position and velocity errors will increase.
- * If it is too small, the system of equations will become unnecessarily stiff.
+ * \f$\alpha\f$ and \f$\beta\f$ are tuning coefficients. There is
+ * no clear and simple rule on how to choose them as good values also
+ * depend on the used integration method and time step. If the values are
+ * too small the constrained dynamics equation becomes stiff, too big
+ * values result in errors not being reduced.
+ *
+ * A good starting point is to parameterize the coefficients as:
+ * \f[
+ * \alpha = \beta = 1 / T_\textit{stab}
+ * \f]
+ * with \f$T_\textit{stab}\f$ specifies a time constant for errors in position
+ * and velocity errors to reduce. Featherstone suggests in his book "Rigid
+ * Body Dynamics Algorithms" that for a big industrial robot a value of 0.1
+ * is reasonable. When testing different values best is to try different
+ * orders of magnitude as e.g. doubling a value only has little effect.
+ *
+ * For Loop- and CustomConstraints Baumgarte stabilization is enabled by
+ * default and uses the stabilization parameter \f$T_\textit{stab} = 0.1\f$.
+ *
  * @{
  */
 
@@ -301,7 +314,10 @@ struct RBDL_DLLAPI ConstraintSet {
    * body frame
    * \param axis a spatial vector indicating the axis along which the constraint
    * acts
-   * \param T_stab_inv coefficient for Baumgarte stabilization.
+   * \param enable_stabilization Whether \ref baumgarte_stabilization
+   * should be enabled or not.
+   * \param stabilization_param The value for \f$T_\textit{stab}\f$ used for the
+   * \ref baumgarte_stabilization (defaults to 0.1).
    * \param constraint_name a human readable name (optional, default: NULL)
    *
    */
@@ -311,50 +327,40 @@ struct RBDL_DLLAPI ConstraintSet {
     const Math::SpatialTransform &X_predecessor,
     const Math::SpatialTransform &X_successor,
     const Math::SpatialVector &axis,
-    double T_stab_inv,
+    bool enable_stabilization = false,
+    const double stabilization_param = 0.1,
     const char *constraint_name = NULL
     );
 
-	/** \brief Adds a loop constraint to the constraint set.
-	 *
-	 * This type of constraints ensures that the relative orientation and position,
-	 * spatial velocity, and spatial acceleration between two frames in two bodies
-	 * are null along a specified spatial constraint axis.
-	 *
-	 * \param id_predecessor the identifier of the predecessor body
-	 * \param id_successor the identifier of the successor body
-	 * \param X_predecessor a spatial transform localizing the constrained
-	 * frames on the predecessor body, expressed with respect to the predecessor
-	 * body frame
-	 * \param X_successor a spatial transform localizing the constrained
-	 * frames on the successor body, expressed with respect to the successor
-	 * body frame
-	 * \param axis a spatial vector indicating the axis along which the constraint
-	 * acts
-	 * \param enable_baumgarte indicates if baumgarte is used or not
-	 * \param T_stab_inv coefficient for Baumgarte stabilization, meaningless
-	 * if enable_baumgarte is false
-	 * \param constraint_name a human readable name (optional, default: NULL)
-	 *
-	 */
-	unsigned int AddLoopConstraint(unsigned int id_predecessor,
-		unsigned int id_successor,
-		const Math::SpatialTransform &X_predecessor,
-		const Math::SpatialTransform &X_successor,
-		const Math::SpatialVector &axis,
-		bool baumgarte_enabled,
-		double T_stab_inv,
-		const char *constraint_name = NULL
-		);
-
+  /** \brief Adds a custom constraint to the constraint set.
+   *
+   * \param custom_constraint The CustomConstraint to be added to the
+   * ConstraintSet.
+   * \param id_predecessor the identifier of the predecessor body
+   * \param id_successor the identifier of the successor body
+   * \param X_predecessor a spatial transform localizing the constrained
+   * frames on the predecessor body, expressed with respect to the predecessor
+   * body frame
+   * \param X_successor a spatial transform localizing the constrained
+   * frames on the successor body, expressed with respect to the successor
+   * body frame
+   * \param axis a spatial vector indicating the axis along which the constraint
+   * acts
+   * \param enable_stabilization Whether \ref baumgarte_stabilization
+   * should be enabled or not.
+   * \param stabilization_param The value for \f$T_\textit{stab}\f$ used for the
+   * \ref baumgarte_stabilization (defaults to 0.1).
+   * \param constraint_name a human readable name (optional, default: NULL)
+   *
+   */
   unsigned int AddCustomConstraint(
-    CustomConstraint* customConstraint,
+    CustomConstraint* custom_constraint,
     unsigned int id_predecessor,
     unsigned int id_successor,
     const Math::SpatialTransform &X_predecessor,
     const Math::SpatialTransform &X_successor,
-    bool baumgarte_enabled,
-    double T_stabilization,
+    bool enable_stabilization = false,
+    const double stabilization_param = 0.1,
     const char *constraint_name = NULL
     );
 
@@ -422,7 +428,7 @@ struct RBDL_DLLAPI ConstraintSet {
   std::vector<Math::SpatialTransform> X_s;
   std::vector<Math::SpatialVector> constraintAxis;
   /** Baumgarte stabilization parameter */
-  std::vector<double> T_stab_inv;
+  std::vector<Math::Vector2d> baumgarteParameters;
   /** Position error for the Baumgarte stabilization */
   Math::VectorNd err;
   /** Velocity error for the Baumgarte stabilization */
@@ -996,7 +1002,8 @@ void SolveConstrainedSystemNullSpace (
 );
 
 
-/**
+/** \brief Interface to define general-purpose constraints.
+ *
 * The CustomConstraint interface is a general-purpose interface that is rich
 * enough to define time-varying constraints at the position-level \f$\phi_p(q,t)=0\f$,
 * the velocity-level \f$\phi_v(\dot{q},t)=0\f$, or the acceleration-level
