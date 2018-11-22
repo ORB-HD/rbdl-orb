@@ -1,4 +1,4 @@
-#cython: boundscheck=False, embedsignature=True
+#cython: c_string_type=unicode, c_string_encoding=default, boundscheck=False, embedsignature=True
 
 import numpy as np
 cimport numpy as np
@@ -996,7 +996,7 @@ cdef class Joint:
                   self.thisptr = new crbdl.Joint(<crbdl.JointType> self.joint_type_map[joint_type])
                   
                   
-               # print self._joint_type_from_str(joint_type) 
+               # print (self._joint_type_from_str(j)oint_type) 
                # self.thisptr = new crbdl.Joint(self._joint_type_from_str(joint_type))
                # joint_type = self._joint_type_from_str(joint_type)
                # self.thisptr = new crbdl.Joint(<JointType> joint_type)
@@ -1234,7 +1234,7 @@ cdef public api int cy_call_jcalc(object self, crbdl.Model *model,
                                         crbdl.VectorNd qdot, 
                                         int *error):
       
-      print "has jcalc", (hasattr(self, "jcalc"))
+      #print ("has jcalc", (hasattr(self,) "jcalc"))
       if (hasattr(self, "jcalc")):
         error[0] = 0
         
@@ -1242,20 +1242,20 @@ cdef public api int cy_call_jcalc(object self, crbdl.Model *model,
         del c_model.thisptr
         c_model.thisptr = model
 #      # UpdateKinematics (c_model, VectorNdToNumpy(q), VectorNdToNumpy(qdot), qddot)
-#        print c_model.gravity
-#        print c_model.dof_count
-#        print c_model.mFixedJointCount
+#        print (c_model.gravity)
+#        print (c_model.dof_count)
+#        print (c_model.mFixedJointCount)
 #        dd = c_model.X_J
-#        print dd[joint_id]
+#        print (dd[joint_id])
         
-        
-#        print "lambda_py", c_model.thisptr._lambda[0]
-#        print "lambda_c", model._lambda[0]
+
+#        print ("lambda_py", c_model.thisptr._lambda[0])
+#        print ("lambda_c", model._lambda[0])
         
         self.jcalc(c_model, joint_id, VectorNdToNumpy (q), VectorNdToNumpy (qdot))
-#        print "after jcalc"
-#        print "lambda_py", c_model.thisptr._lambda[0]
- #       print "lambda_c", model._lambda[0]
+#        print ("after jcalc")
+#        print ("lambda_py", c_model.thispt)r._lambda[0])
+#        print ("lambda_c", model._lambda[0])
         
         c_model.thisptr = NULL
         del c_model
@@ -1269,14 +1269,14 @@ cdef public api int cy_call_jcalc_X_lambda_S(object self,
                                         crbdl.VectorNd q, 
                                         int *error):
                                           
-      print "has jcalc", (hasattr(self, "pyjcalc_X_lambda_S"))                                  
+      #print ("has jcalc", (hasattr(self,) "pyjcalc_X_lambda_S"))                                  
       if (hasattr(self, "pyjcalc_X_lambda_S")):
         error[0] = 0
         c_model = Model()
         c_model.thisptr = model
 #        qdot = np.zeros(model.dof_count)
 #        qddot = np.zeros(model.dof_count)
- #       crbdl.UpdateKinematics (c_model.thisptr[0], q, NumpyToVectorNd(qdot), NumpyToVectorNd(qddot))
+#        crbdl.UpdateKinematics (c_model.thisptr[0], q, NumpyToVectorNd(qdot), NumpyToVectorNd(qddot))
         getattr(self, "jcalc_X_lambda_S")(c_model, joint_id, VectorNdToNumpy (q));
       else:
         error[0] = 1 
@@ -1306,7 +1306,7 @@ cdef class Model:
             SpatialTransform joint_frame not None,
             Joint joint not None,
             Body body not None,
-            string body_name = ""):
+            string body_name = b""):
         return self.thisptr.AddBody (
                 parent_id,
                 joint_frame.thisptr[0],
@@ -1319,7 +1319,7 @@ cdef class Model:
             SpatialTransform joint_frame not None,
             Joint joint not None,
             Body body not None,
-            string body_name = ""):
+            string body_name = b""):
         return self.thisptr.AppendBody (
                 joint_frame.thisptr[0],
                 joint.thisptr[0],
@@ -1332,11 +1332,11 @@ cdef class Model:
                 SpatialTransform joint_frame not None,
                 CustomJoint custom_joint not None,
                 Body body not None,
-                string body_name = ""):
+                string body_name = b""):
         
-        print custom_joint.thisptr.mDoFCount
-        print custom_joint.S
-                
+        print (custom_joint.thisptr.mDoFCount)
+        print (custom_joint.S)
+
         return self.thisptr.AddBodyCustomJoint (
                 parent_id,
                 joint_frame.thisptr[0],
@@ -1434,10 +1434,10 @@ cdef class Model:
 #    property _lambda:
 #        def __get__ (self):
 #            vector_size = self.thisptr._lambda.size()
-#            print "vector_size",  vector_size
+#            print ("vector_size",  vector_size)
 #            ST = np.empty([vector_size], dtype=int)
 #            for k in range(vector_size):
-#              print "wrappergen ", self.thisptr._lambda[k]
+#              print ("wrappergen ", self.thisptr._lambda[k])
 #              ST[k] = self.thisptr._lambda[k]
 #            return ST
 

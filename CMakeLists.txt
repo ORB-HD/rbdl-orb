@@ -64,6 +64,7 @@ OPTION (RBDL_BUILD_PYTHON_WRAPPER "Build experimental python wrapper" OFF)
 OPTION (RBDL_BUILD_ADDON_GEOMETRY "Build the geometry library" OFF)
 OPTION (RBDL_BUILD_ADDON_MUSCLE "Build the muscle library" OFF)
 OPTION (RBDL_BUILD_ADDON_MUSCLE_FITTING "Build muscle library fitting functions (requires Ipopt)" OFF)
+OPTION (RBDL_USE_PYTHON_2 "Use python 2 instead of python 3" OFF)
 
 
 # Addons
@@ -173,7 +174,6 @@ CONFIGURE_FILE (
 # Python wrapper
 IF (RBDL_BUILD_PYTHON_WRAPPER)
 	add_subdirectory ( python )
-
 ENDIF (RBDL_BUILD_PYTHON_WRAPPER)
 
 # Installation
