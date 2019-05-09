@@ -1083,7 +1083,7 @@ accelerations, \f$\ddot{q}^*\f$, and the actuated accelerations is minimized
 
  <b>References</b>
   -# Koch KH (2015). Using model-based optimal control for conceptional motion generation for the humannoid robot hrp-2 14 and design investigations for exo-skeletons. Heidelberg University (Doctoral dissertation).
-  -# Kudruss M (under review).  (Doctoral dissertation)
+  -# Kudruss M (under review as of May 2019). Nonlinear model-predictive control for the motion generation of humanoids. Heidelberg University  (Doctoral dissertation)
 
  \param model: rigid body model
  \param Q:     N-element vector of generalized positions
