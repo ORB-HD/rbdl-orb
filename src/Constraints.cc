@@ -265,7 +265,7 @@ bool ConstraintSet::Bind (const Model &model) {
   S.conservativeResize(model.dof_count, model.dof_count);
   S.setZero();
   W.conservativeResize(model.dof_count, model.dof_count);
-  W.setIdentity();
+  W.Identity(model.dof_count, model.dof_count);
 
   Gi.conservativeResize (3, model.qdot_size);
   GSpi.conservativeResize (6, model.qdot_size);
@@ -1744,7 +1744,7 @@ void InverseDynamicsConstraints(
 
   CS.GT_qr.compute (CS.GT);
 #ifdef RBDL_USE_SIMPLE_MATH
-    CS.GT_qr_Q = CS.GTIdc_qr.householderQ();
+    CS.GT_qr_Q = CS.GT_qr.householderQ();
 #else
     CS.GT_qr.householderQ().evalTo (CS.GT_qr_Q);
 #endif
