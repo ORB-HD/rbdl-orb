@@ -65,53 +65,6 @@ cdef extern from "addons/muscle/Millard2016TorqueMuscle.h" namespace "RigidBodyD
         AgeGroupSet_SeniorOver65 "RigidBodyDynamics::Addons::Muscle::AgeGroupSet::SeniorOver65"
         AgeGroupSet_Last "RigidBodyDynamics::Addons::Muscle::AgeGroupSet::Last"
 
-#      cdef cppclass DataSet:
-#        DataSet_item item
-## #       cdef:
-##  #        readonly int Anderson2007
-##   #       readonly int Gymnast
-##    #      readonly int Last
-##        
-## #       def __cinit__(self):
-##  #        self.Anderson2007 = DataSet_Anderson2007
-##   #       self.Gymnast = DataSet_Gymnast
-##    #      self.Last = DataSet_Last
-        
-#        const char* names[]
-#        DataSet()
-
-#      cdef cppclass _GenderSet:
-#        GenderSet_item item
-##        cdef:
-##          readonly int Male
-##          readonly int Female
-##          readonly int Last
-        
-##        def __cinit__(self):
-##          self.Male = GenderSet_Male
-##          self.Female = GenderSet_Female
-##          self.Last = GenderSet_Last
-        
-#        const char* names[]
-#        _GenderSet()
-      
-#      cdef cppclass _AgeGroupSet:
-#        AgeGroupSet_item item
-##        cdef:
-##          readonly int Young18To25
-##          readonly int Middle55To65
-##          readonly int SeniorOver65
-##          readonly int Last
-        
-##        def __cinit__(self):
-##          self.Young18To25 = AgeGroupSet_Young18To25
-##          self.Middle55To65 = AgeGroupSet_Middle55To65
-##          self.SeniorOver65 = AgeGroupSet_SeniorOver65
-##          self.Last = DataSet_Last
-        
-#        const char* names[]
-#        _AgeGroupSet()
-
 
       cdef cppclass SubjectInformation:
           GenderSet_item gender;
@@ -290,20 +243,20 @@ cdef extern from "addons/muscle/Millard2016TorqueMuscle.h" namespace "RigidBodyD
              
    
    
-   
-cdef extern from "addons/muscle/TorqueMuscleFittingToolkit.h" namespace "RigidBodyDynamics::Addons::Muscle::TorqueMuscleFittingToolkit":
+IF "@RBDL_BUILD_ADDON_MUSCLE_FITTING@" == "ON":      
+  cdef extern from "addons/muscle/TorqueMuscleFittingToolkit.h" namespace "RigidBodyDynamics::Addons::Muscle::TorqueMuscleFittingToolkit":
    
         
         
-        void fitTorqueMuscleParameters(
-                        Millard2016TorqueMuscle &tqMcl,
-                        VectorNd &jointAngle,
-                        VectorNd &jointAngularVelocity,
-                        VectorNd &jointTorque,
-                        double activationUpperBound,
-                        double passiveTorqueAngleMultiplierUpperBound,
-                        TorqueMuscleParameterFittingData &parametersOfBestFit,
-                        bool verbose);
+    void fitTorqueMuscleParameters(
+                    Millard2016TorqueMuscle &tqMcl,
+                    VectorNd &jointAngle,
+                    VectorNd &jointAngularVelocity,
+                    VectorNd &jointTorque,
+                    double activationUpperBound,
+                    double passiveTorqueAngleMultiplierUpperBound,
+                    TorqueMuscleParameterFittingData &parametersOfBestFit,
+                    bool verbose);
 
    
    
