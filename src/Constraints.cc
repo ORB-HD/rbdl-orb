@@ -437,6 +437,11 @@ bool ConstraintSet::Bind (const Model &model) {
   x.conservativeResize (model.dof_count + n_constr);
   x.setZero();
 
+  S.conservativeResize(model.dof_count, model.dof_count);
+  S.setZero();
+  W.conservativeResize(model.dof_count, model.dof_count);
+  W.Identity(model.dof_count, model.dof_count);
+
   // HouseHolderQR crashes if matrix G has more rows than columns.
 #ifdef RBDL_USE_SIMPLE_MATH
   GT_qr = SimpleMath::HouseholderQR<Math::MatrixNd> (G.transpose());
@@ -483,6 +488,66 @@ bool ConstraintSet::Bind (const Model &model) {
 }
 
 //==============================================================================
+void ConstraintSet::SetActuationMap(const Model &model,
+                                       const std::vector<bool> &actuatedDofUpd)
+{
+
+  assert(actuatedDofUpd.size() == model.dof_count);
+
+  unsigned int n  = unsigned( int( model.dof_count ));
+  unsigned int nc = unsigned( int( name.size() ));
+  unsigned int na = 0; //actuated dofs
+  unsigned int nu = 0; //unactuated dofs
+
+  for(unsigned int i=0; i<actuatedDofUpd.size();++i){
+    if(actuatedDofUpd[i]){
+      ++na;
+    }
+  }
+  nu = n-na;
+
+  S.conservativeResize(na,model.dof_count);
+  S.setZero();
+  P.conservativeResize(n-na,model.dof_count);
+  P.setZero();
+  W.conservativeResize(na,na);
+  W.setZero();
+
+  u.resize(na);
+  v.resize(nu);
+
+  unsigned int j=0;
+  unsigned int k=0;
+  for(unsigned int i=0; i<model.dof_count;++i){
+    if(actuatedDofUpd[i]){
+      S(j,i) = 1.;
+      W(j,j) = 1.;
+      ++j;
+    }else{
+      P(k,i) = 1.;
+      ++k;
+    }
+  }
+
+  unsigned int dim = n+n+nc+na;
+
+  //Null space method variable initialization
+  dim = na+nu;
+  F.conservativeResize(dim,dim);
+  F.setZero();
+
+  g.conservativeResize(n);
+
+  Ru.conservativeResize(nc,nc);
+  py.conservativeResize(nc);
+  pz.conservativeResize(n-nc);
+
+  GT.conservativeResize(n,nc);
+
+
+
+}
+
 void ConstraintSet::clear() {
   force.setZero();
   impulse.setZero();
@@ -1681,6 +1746,113 @@ void ForwardDynamicsContactsKokkevis (
 }
 
 //==============================================================================
+RBDL_DLLAPI
+void InverseDynamicsConstraints(
+    Model &model,
+    const Math::VectorNd &Q,
+    const Math::VectorNd &QDot,
+    const Math::VectorNd &QDDotDesired,
+    ConstraintSet &CS,
+    Math::VectorNd &QDDotOutput,
+    Math::VectorNd &TauOutput,
+    std::vector<Math::SpatialVector> *f_ext)
+{
+  LOG << "-------- " << __func__ << " --------" << std::endl;
+
+  //Check that the input vectors and matricies are sized appropriately
+  assert(Q.size()               == model.q_size);
+  assert(QDot.size()            == model.qdot_size);
+  assert(QDDotDesired.size()    == model.dof_count);
+  assert(CS.S.cols()            == model.dof_count);
+  assert(CS.W.rows()            == CS.W.cols());
+  assert(CS.W.rows()            == CS.S.rows());
+  assert(QDDotOutput.size()     == model.dof_count);
+
+  CalcConstrainedSystemVariables (model, Q, QDot, TauOutput, CS,f_ext);
+
+  //To ensure that F & Z'FZ are positive definite
+  CS.W = 0.1*(CS.S*CS.H*CS.S.transpose());
+
+  //In the draft of the IDC paper there is a sign error on the K term
+  //in Eqn. 25 (orthogonal matrix lhs), Eqn. 28 (matrix F)
+  CS.F.block( 0, 0, CS.S.rows(),CS.S.rows()) = CS.S*CS.H*CS.S.transpose()-CS.W;
+  CS.F.block(          0, CS.S.rows(), CS.S.rows(), CS.P.rows()) 
+    = CS.S*CS.H*CS.P.transpose();
+  CS.F.block(CS.S.rows(),           0, CS.P.rows(), CS.S.rows()) 
+    = CS.P*CS.H*CS.S.transpose();
+  CS.F.block(CS.S.rows(), CS.S.rows(), CS.P.rows(), CS.P.rows()) 
+    = CS.P*CS.H*CS.P.transpose();
+
+  //Making use of the matricies already set up for the QR decomposition of G'
+  CS.GT.block(          0, 0,CS.S.rows(),CS.G.rows()) = CS.S*CS.G.transpose();
+  CS.GT.block(CS.S.rows(), 0,CS.P.rows(),CS.G.rows()) = CS.P*CS.G.transpose();
+
+
+  CS.GT_qr.compute (CS.GT);
+#ifdef RBDL_USE_SIMPLE_MATH
+    CS.GT_qr_Q = CS.GT_qr.householderQ();
+#else
+    CS.GT_qr.householderQ().evalTo (CS.GT_qr_Q);
+#endif
+
+  CS.R  = CS.GT_qr_Q.transpose()*CS.GT;
+  CS.Ru = CS.R.block(0,0,CS.G.rows(),CS.G.rows());
+
+  CS.Y = CS.GT_qr_Q.block (              0,           0, 
+                           model.dof_count, CS.G.rows() );
+  CS.Z = CS.GT_qr_Q.block ( 0,                  CS.G.rows(), 
+              model.dof_count,(model.dof_count-CS.G.rows()));
+
+  //In the draft paper the equation for the rhs of Eqn 25 has a sign error
+  //on Kv* as does Eqn. 29 for g.
+  CS.u = CS.S*CS.C + CS.W*CS.S*QDDotDesired;
+  CS.v = CS.P*CS.C;
+
+  for(unsigned int i=0; i<CS.S.rows();++i){
+    CS.g[i] = CS.u[i];
+  }
+  unsigned int j=CS.S.rows();
+  for(unsigned int i=0; i<CS.P.rows();++i){
+    CS.g[j] = CS.v[i];
+    ++j;
+  }
+
+  //nc x nc system
+  SolveLinearSystem(CS.Ru.transpose(), CS.gamma, CS.py, CS.linear_solver);
+
+  //(n-nc) x (n-nc) system
+  SolveLinearSystem(CS.Z.transpose()*CS.F*CS.Z,
+    CS.Z.transpose()*(-CS.F*CS.Y*CS.py-CS.g),
+    CS.pz,
+    CS.linear_solver);
+
+  //nc x nc system
+  SolveLinearSystem(CS.Ru,
+    CS.Y.transpose()*(CS.g + CS.F*CS.Y*CS.py + CS.F*CS.Z*CS.pz),
+    CS.force, CS.linear_solver);
+
+  //Eqn. 32d, the equation for qdd, is in error. Instead
+  // p = Ypy + Zpz = [v,w]
+  // qdd = S'v + P'w
+  QDDotOutput = CS.Y*CS.py + CS.Z*CS.pz;
+  for(unsigned int i=0; i<CS.S.rows();++i){
+    CS.u[i] = QDDotOutput[i];
+  }
+  j = CS.S.rows();
+  for(unsigned int i=0; i<CS.P.rows();++i){
+    CS.v[i] = QDDotOutput[j];
+    ++j;
+  }
+
+  QDDotOutput = CS.S.transpose()*CS.u
+               +CS.P.transpose()*CS.v;
+
+  //Eqn. 32e the equation for tau in the manuscript has a sign error on
+  //the right hand side.
+  TauOutput = (CS.S.transpose()*CS.W*CS.S)*(QDDotOutput-QDDotDesired);
+
+}
+
 void SolveLinearSystem (
   const MatrixNd& A,
   const VectorNd& b, 
