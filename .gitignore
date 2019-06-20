@@ -1,3 +1,4 @@
 debug
 build
 doc/html
+**/build
