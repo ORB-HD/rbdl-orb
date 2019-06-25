@@ -1714,7 +1714,7 @@ void ForwardDynamicsContactsKokkevis (
 
 
 RBDL_DLLAPI
-void InverseDynamicsConstraintsFullyActuated(
+void InverseDynamicsConstraints(
     Model &model,
     const Math::VectorNd &Q,
     const Math::VectorNd &QDot,
@@ -1751,8 +1751,8 @@ void InverseDynamicsConstraintsFullyActuated(
   //  [ PMS'      PMP'    PJ'     ][      w] = [ -PC    ]
   //  [ JS'        JP'     0      ][-lambda]   [ -gamma ]
   //  [ I                         ][   -tau]   [  v*     ]
-  double alpha = 0.1;
-  CS.KIdcD = alpha*CS.S*CS.H*CS.S.transpose();
+  //double alpha = 0.1;
+  CS.KIdcD.setIdentity();// = alpha*CS.S*CS.H*CS.S.transpose();
 
   CS.AIdcD.block( 0,  0, na, na ) = CS.S*CS.H*CS.S.transpose();
   CS.AIdcD.block( 0, na, na, nu ) = CS.S*CS.H*CS.P.transpose();
@@ -1824,10 +1824,10 @@ void InverseDynamicsConstraintsFullyActuated(
   }
 
 
-  std::cout << "A"      << std::endl;
-  std::cout << CS.AIdcD << std::endl;
-  std::cout << "b"      << std::endl;
-  std::cout << CS.bIdcD << std::endl;
+  //std::cout << "A"      << std::endl;
+  //std::cout << CS.AIdcD << std::endl;
+  //std::cout << "b"      << std::endl;
+  //std::cout << CS.bIdcD << std::endl;
 
   SolveLinearSystem(CS.AIdcD,CS.bIdcD,CS.xIdcD,CS.linear_solver);
 
@@ -1859,7 +1859,7 @@ void InverseDynamicsConstraintsFullyActuated(
 }
 
 RBDL_DLLAPI
-void InverseDynamicsConstraints(
+void InverseDynamicsConstraintsRelaxed(
     Model &model,
     const Math::VectorNd &Q,
     const Math::VectorNd &QDot,
@@ -1880,32 +1880,29 @@ void InverseDynamicsConstraints(
   assert(CS.W.rows()            == CS.S.rows());
   assert(QDDotOutput.size()     == model.dof_count);
 
-  CalcConstrainedSystemVariables (model, Q, QDot, TauOutput, CS,f_ext);
+  TauOutput.setZero();
+  CalcConstrainedSystemVariables(model,Q,QDot,TauOutput,CS,f_ext);
 
-  //The first upper block is given by
-  //  S H S' + K
-  //where we are using
-  //  K = alpha*SHS'
-  //which means we end up with an upper block of
-  //  (1+alpha)*SHS'
-  //Using alpha = 0.1 we are left with
-  CS.W = 0.1*CS.S*CS.H*CS.S.transpose();
-  CS.F.block( 0, 0, CS.S.rows(),CS.S.rows()) = CS.S*CS.H*CS.S.transpose() + CS.W;
-  CS.F.block(          0, CS.S.rows(), CS.S.rows(), CS.P.rows()) 
-    = CS.S*CS.H*CS.P.transpose();
-  CS.F.block(CS.S.rows(),           0, CS.P.rows(), CS.S.rows()) 
-    = CS.P*CS.H*CS.S.transpose();
-  CS.F.block(CS.S.rows(), CS.S.rows(), CS.P.rows(), CS.P.rows()) 
-    = CS.P*CS.H*CS.P.transpose();
+  unsigned int n  = unsigned(    CS.H.rows());
+  unsigned int nc = unsigned( CS.name.size());
+  unsigned int na = unsigned(    CS.S.rows());
+  unsigned int nu = n-na;
+
+
+  CS.W.setIdentity(); //MM: This must be the identity matrix for now
+                      //    to take advantage of a small update that will
+                      //    enable QDDotDesired to be satisfied exactly in
+                      //    the actuated domain.
+  CS.F.block(  0,  0, na, na) = CS.S*CS.H*CS.S.transpose() + CS.W;
+  CS.F.block(  0, na, na, nu) = CS.S*CS.H*CS.P.transpose();
+  CS.F.block( na,  0, nu, na) = CS.P*CS.H*CS.S.transpose();
+  CS.F.block( na, na, nu, nu) = CS.P*CS.H*CS.P.transpose();
 
   //Making use of the matricies already set up for the QR decomposition of G'
   //CS.g.block(0, 0, CS.S.rows(),1) = (CS.W*0.1)*CS.S*QDDotDesired - CS.S*(CS.C);
   //CS.g.block(CS.S.rows(),0,CS.P.row(),1) = ;
-  CS.GT.block(          0, 0,CS.S.rows(),CS.G.rows()) =
-      CS.S*CS.G.transpose();
-  CS.GT.block(CS.S.rows(), 0,CS.P.rows(),CS.G.rows()) =
-      CS.P*CS.G.transpose();
-
+  CS.GT.block(  0, 0,na, nc) = CS.S*CS.G.transpose();
+  CS.GT.block( na, 0,nu, nc) = CS.P*CS.G.transpose();
 
   CS.GT_qr.compute (CS.GT);
 #ifdef RBDL_USE_SIMPLE_MATH
@@ -1915,17 +1912,29 @@ void InverseDynamicsConstraints(
 #endif
 
   CS.R  = CS.GT_qr_Q.transpose()*CS.GT;
-  CS.Ru = CS.R.block(0,0,CS.G.rows(),CS.G.rows());
+  CS.Ru = CS.R.block(0,0,nc,nc);
 
-  CS.Y = CS.GT_qr_Q.block ( 0,           0,
-                            model.dof_count, CS.G.rows() );
-  CS.Z = CS.GT_qr_Q.block ( 0, CS.G.rows(),
-                            model.dof_count,(model.dof_count-CS.G.rows()));
+  CS.Y = CS.GT_qr_Q.block( 0, 0,  n, nc    );
+  CS.Z = CS.GT_qr_Q.block( 0, nc, n, (n-nc));
+  MatrixNd Gerr = CS.GT - CS.Y*CS.Ru; //This checks out just fine.
 
-  //In the draft paper the equation for the rhs of Eqn 25 has a sign error
-  //on Kv* as does Eqn. 29 for g.
-  CS.u = CS.S*CS.C - CS.W*CS.S*QDDotDesired;
-  CS.v =-CS.P*CS.C;
+  //We've updated QDDotDesired by changing the equation in this way
+  //so that the term SN is cancelled. Before we had a rhs upper block of
+  //
+  // [K][S](qdd*) - [S](N)
+  //
+  // Set K = I
+  //
+  // [S]( qdd* - N )
+  //
+  // Now we update qdd* to be qdd1*
+  //
+  // qdd1* = qdd* + N
+  //
+  //
+  //CS.u = CS.S*CS.C - CS.W*CS.S*QDDotDesired;
+  CS.u = CS.S*CS.C - CS.W*CS.S*(QDDotDesired + CS.C);
+  CS.v = CS.P*CS.C;
 
   for(unsigned int i=0; i<CS.S.rows();++i){
     CS.g[i] = CS.u[i];
@@ -1968,7 +1977,7 @@ void InverseDynamicsConstraints(
 
   //Eqn. 32e the equation for tau in the manuscript has a sign error on
   //the right hand side.
-  TauOutput = (CS.S.transpose()*CS.W*CS.S)*(QDDotOutput-QDDotDesired);
+  TauOutput = (CS.S.transpose()*CS.W*CS.S)*(QDDotDesired+CS.C-QDDotOutput);
 
 }
 

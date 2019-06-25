@@ -869,9 +869,10 @@ void ForwardDynamicsContactsKokkevis (
 
 
 /**
- @brief An inverse-dynamics operator that can work with models with 
-        kinematic constraints and a user-defined set of actuated 
-        degrees-of-freedom (chosen by calling SetActuationMap)
+ @brief An inverse-dynamics operator will solve for the relaxed generalized
+        accelerations and physically consistent forces that satisfy the
+        constrained equations of motion given a vector of desired accelerations
+        (set actuated degrees-of-freedom using the function SetActuationMap).
 
  \par
  This function implements an inverse-dynamics operator defined by Koch [1] and
@@ -960,7 +961,7 @@ accelerations, \f$\ddot{q}^*\f$, and the actuated accelerations is minimized
    \begin{array}{ccc}
     S H S^T+W & S M P^T & S G^T \\
     P M S^T & P M P^T & P G^T \\
-    G^T S^T & G^T P^T & 0     
+    G S^T & G P^T & 0
    \end{array}
  \right)
  \left(
@@ -973,7 +974,7 @@ accelerations, \f$\ddot{q}^*\f$, and the actuated accelerations is minimized
  =
  \left(
    \begin{array}{c}
-    -Wu^* -SC\\
+     Wu^* -SC\\
      -PC\\
     \gamma
    \end{array}
@@ -982,7 +983,7 @@ accelerations, \f$\ddot{q}^*\f$, and the actuated accelerations is minimized
   This system has an upper block triangular structure which can be seen by 
   noting that
   \f[ 
-    G^T = \left( \begin{array}{c} S G^T \\ P G^T \end{array} \right),
+    J^T = \left( \begin{array}{c} S G^T \\ P G^T \end{array} \right),
   \f]
   by grouping the upper \f$2 \times 2\f$ block into
   \f[
@@ -992,13 +993,13 @@ accelerations, \f$\ddot{q}^*\f$, and the actuated accelerations is minimized
   \f]
   and by grouping the right hand side into
   \f[
-    g = \left( \begin{array}{c} Wu^* + SC \\ PC \end{array} \right)
+    g = \left( \begin{array}{c} -Wu^* + SC \\ PC \end{array} \right)
   \f]
   resulting in
   \f[
     \left( \begin{array}{cc}
-            F & G^T \\
-            G & 0 
+            F & J^T \\
+            J & 0
             \end{array}
     \right)
     \left( \begin{array}{c}
@@ -1016,7 +1017,7 @@ accelerations, \f$\ddot{q}^*\f$, and the actuated accelerations is minimized
   This system can be triangularized by projecting the system into the null
   space of \f$G^T\f$. First we begin with a QR decomposition of \f$G^T\f$ into
   \f[ 
-    G^T = \left( Y \, Z \right)\left( \begin{array}{c} R \\ 0 \end{array} \right)
+    J^T = \left( Y \, Z \right)\left( \begin{array}{c} R \\ 0 \end{array} \right)
   \f]
   and projecting \f$(u,v)\f$ into the space \f$[Y,Z]\f$ 
   \f[
@@ -1047,7 +1048,7 @@ accelerations, \f$\ddot{q}^*\f$, and the actuated accelerations is minimized
   Though this system is still \f$(n+c) \times (n+c)\f$ it can be solved in parts
   for \f$p_Y\f$
   \f[
-    R^T p_Y = - Y^T g,
+    R^T p_Y = \gamma,
   \f]
   and \f$p_Z\f$
   \f[
@@ -1074,7 +1075,7 @@ accelerations, \f$\ddot{q}^*\f$, and the actuated accelerations is minimized
   \f]
   and
   \f[
-    \tau = S^T W S (\ddot{q}-\ddot{q}^*)
+    \tau = S^T W S (\ddot{q}^*-\ddot{q})
   \f]
 
 
@@ -1096,8 +1097,17 @@ accelerations, \f$\ddot{q}^*\f$, and the actuated accelerations is minimized
  \param model: rigid body model
  \param Q:     N-element vector of generalized positions
  \param QDot:  N-element vector of generalized velocities
- \param QDDotDesired:  N-element vector of desired generalized accelerations
-                       (\f$\ddot{q}^*\f$ in the above equation)
+
+ \param QDDotDesired:
+      N-element vector of desired generalized accelerations
+     (\f$\ddot{q}^*\f$ in the above equation). Note that
+     in this operator the correspondance between \f$S\ddot{q}\f$
+     and \f$S\ddot{q}^*\f$ is lost: you may need to put
+     strange values into QDDotDesired to reach the acceleration
+     that you want. Originally this input vector was not set by
+     hand, but was used as input for an optimization routine.
+
+
  \param CS: Structure that contains information about the set of kinematic
             constraints. Note that the 'force' vector is appropriately updated
             after this function is called so that it contains the Lagrange
@@ -1113,7 +1123,7 @@ accelerations, \f$\ddot{q}^*\f$, and the actuated accelerations is minimized
 
  */
 RBDL_DLLAPI
-void InverseDynamicsConstraints(
+void InverseDynamicsConstraintsRelaxed(
     Model &model,
     const Math::VectorNd &Q,
     const Math::VectorNd &QDot,
@@ -1123,8 +1133,91 @@ void InverseDynamicsConstraints(
     Math::VectorNd &TauOutput,
     std::vector<Math::SpatialVector> *f_ext  = NULL);
 
+/**
+ @brief An inverse-dynamics operator will exactly solve for the generalized
+        accelerations and forces that satisfy the constrained equations of
+        motion of a fully-actuated model (set actuated degrees-of-freedom
+        using the function SetActuationMap).
+
+ \par
+ This function implements an inverse-dynamics operator defined by Koch [1]
+ (described in Eqn. 5.20) which when given a vector of
+ generalized positions, generalized velocities, and desired generalized
+ accelerations will exactly solve for a set of generalized accelerations and
+ forces which satisfy the constrained equations of motion
+ \f[
+ \left(
+   \begin{array}{cccc}
+    S H S^T & S M P^T & S G^T & I \\
+    P M S^T & P M P^T & P G^T & 0\\
+    G S^T & G P^T & 0 & 0 \\
+    I & 0 & 0 & 0 \\
+   \end{array}
+ \right)
+ \left(
+   \begin{array}{c}
+    S \ddot{q} \\
+    P \ddot{q} \\
+    -\lambda\\
+    -\tau
+   \end{array}
+ \right)
+ =
+ \left(
+   \begin{array}{c}
+     -SC\\
+     -PC\\
+    \gamma\\
+    S \ddot{q}^*
+   \end{array}
+ \right)
+ \f]
+ where
+ \f[
+  \ddot{q} = S \ddot{q} + P \ddot{q}.
+ \f]
+ and the variable \f$S\f$ is a matrix that selectes the actuated generalized
+ coordinates and \f$P\f$ is a matrix that selects the unactuated
+ generalized coordinates.
+  This method can only be applied to systems where
+  \f[
+   \text{rank}( P G^T ) = n - n_a
+  \f]
+  where \f$n\f$ is the number of degrees of freedom and \f$n_a\f$ is the
+  number of actuated degrees of freedom. In words, there cannot be any
+  redundant constraints, nor can the actuated degrees of freedom
+  overlap with the constrained degrees of freedom. If the equations \f$P G^T\f$
+  cannot satisfy this condition please use InverseDynamicsConstraintsRelaxed
+  for an solution in which the constraint \f$S\ddot{q}=S\ddot{q}^*\f$ is
+  relaxed.
+
+ <b>References</b>
+  -# Koch KH (2015). Using model-based optimal control for conceptional motion generation for the humannoid robot hrp-2 14 and design investigations for exo-skeletons. Heidelberg University (Doctoral dissertation).
+
+
+ \param model: rigid body model
+ \param Q:     N-element vector of generalized positions
+ \param QDot:  N-element vector of generalized velocities
+ \param QDDotDesired:  N-element vector of desired generalized accelerations
+                       (\f$\ddot{q}^*\f$ in the above equation)
+ \param CS: Structure that contains information about the set of kinematic
+            constraints. Note that the 'force' vector is appropriately updated
+            after this function is called so that it contains the Lagrange
+            multipliers.
+
+ \param QDDotOutput:  N-element vector of generalized accelerations which
+                      satisfy the kinematic constraints (\f$\ddot{q}\f$ in the
+                      above equation)
+ \param TauOutput: N-element vector of generalized forces which satisfy the
+                   the equations of motion for this constrained system.
+ \param f_ext External forces acting on the body in base coordinates
+        (optional, defaults to NULL)
+
+
+*/
+
 RBDL_DLLAPI
-void InverseDynamicsConstraintsFullyActuated(
+void InverseDynamicsConstraints(
     Model &model,
     const Math::VectorNd &Q,
     const Math::VectorNd &QDot,
