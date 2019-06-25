@@ -522,6 +522,14 @@ struct RBDL_DLLAPI ConstraintSet {
   Math::VectorNd qddot_y;
   Math::VectorNd qddot_z;
 
+  Math::MatrixNd AIdcD;
+  Math::MatrixNd KIdcD;
+  Math::VectorNd bIdcD;
+  Math::VectorNd xIdcD;
+  Math::VectorNd vIdcD;
+  Math::VectorNd wIdcD;
+
+
   // Variables used by the IABI methods
 
   /// Workspace for the Inverse Articulated-Body Inertia.
@@ -1106,6 +1114,17 @@ accelerations, \f$\ddot{q}^*\f$, and the actuated accelerations is minimized
  */
 RBDL_DLLAPI
 void InverseDynamicsConstraints(
+    Model &model,
+    const Math::VectorNd &Q,
+    const Math::VectorNd &QDot,
+    const Math::VectorNd &QDDotDesired,
+    ConstraintSet &CS,
+    Math::VectorNd &QDDotOutput,
+    Math::VectorNd &TauOutput,
+    std::vector<Math::SpatialVector> *f_ext  = NULL);
+
+RBDL_DLLAPI
+void InverseDynamicsConstraintsFullyActuated(
     Model &model,
     const Math::VectorNd &Q,
     const Math::VectorNd &QDot,
