@@ -266,6 +266,8 @@ bool ConstraintSet::Bind (const Model &model) {
   S.setZero();
   W.conservativeResize(model.dof_count, model.dof_count);
   W.Identity(model.dof_count, model.dof_count);
+  Winv.conservativeResize(model.dof_count, model.dof_count);
+  Winv.Identity(model.dof_count, model.dof_count);
 
   Gi.conservativeResize (3, model.qdot_size);
   GSpi.conservativeResize (6, model.qdot_size);
@@ -331,18 +333,18 @@ void ConstraintSet::SetActuationMap(const Model &model,
   }
   nu = n-na;
 
-  AIdcD.resize(n+nc+na,n+nc+na);
-    AIdcD.setZero();
-  KIdcD.resize(na,na);
-    KIdcD.setZero();
-  xIdcD.resize(n+nc+na);
-    xIdcD.setZero();
-  bIdcD.resize(n+nc+na);
-    bIdcD.setZero();
-  vIdcD.resize(na);
-    vIdcD.setZero();
-  wIdcD.resize(nu);
-    wIdcD.setZero();
+  AIdc.resize(n+nc+na,n+nc+na);
+    AIdc.setZero();
+  KIdc.resize(na,na);
+    KIdc.setZero();
+  xIdc.resize(n+nc+na);
+    xIdc.setZero();
+  bIdc.resize(n+nc+na);
+    bIdc.setZero();
+  vIdc.resize(na);
+    vIdc.setZero();
+  wIdc.resize(nu);
+    wIdc.setZero();
 
   S.conservativeResize(na,model.dof_count);
   S.setZero();
@@ -350,6 +352,8 @@ void ConstraintSet::SetActuationMap(const Model &model,
   P.setZero();
   W.conservativeResize(na,na);
   W.setZero();
+  Winv.conservativeResize(na,na);
+  Winv.setZero();
 
   u.resize(na);
   v.resize(nu);
@@ -1733,8 +1737,8 @@ void InverseDynamicsConstraints(
   assert (TauOutput.size()    == CS.H.rows());
 
   assert (CS.S.cols()     == QDDotDesired.rows());
-  assert (CS.KIdcD.rows() == CS.S.rows());
-  assert (CS.KIdcD.rows() == CS.KIdcD.cols());
+  assert (CS.KIdc.rows() == CS.S.rows());
+  assert (CS.KIdc.rows() == CS.KIdc.cols());
 
   unsigned int n  = unsigned(    CS.H.rows());
   unsigned int nc = unsigned( CS.name.size());
@@ -1752,33 +1756,33 @@ void InverseDynamicsConstraints(
   //  [ JS'        JP'     0      ][-lambda]   [ -gamma ]
   //  [ I                         ][   -tau]   [  v*     ]
   //double alpha = 0.1;
-  CS.KIdcD.setIdentity();// = alpha*CS.S*CS.H*CS.S.transpose();
+  CS.KIdc.setIdentity();// = alpha*CS.S*CS.H*CS.S.transpose();
 
-  CS.AIdcD.block( 0,  0, na, na ) = CS.S*CS.H*CS.S.transpose();
-  CS.AIdcD.block( 0, na, na, nu ) = CS.S*CS.H*CS.P.transpose();
-  CS.AIdcD.block( 0,  n, na, nc ) = CS.S*CS.G.transpose();
+  CS.AIdc.block( 0,  0, na, na ) = CS.S*CS.H*CS.S.transpose();
+  CS.AIdc.block( 0, na, na, nu ) = CS.S*CS.H*CS.P.transpose();
+  CS.AIdc.block( 0,  n, na, nc ) = CS.S*CS.G.transpose();
 
   for(unsigned int i=0; i<na; ++i){
     for(unsigned int j=0; j<na; ++j){
       if(i == j){
-        CS.AIdcD(i,n+nc+j) = 1.;
+        CS.AIdc(i,n+nc+j) = 1.;
       }else{
-        CS.AIdcD(i,n+nc+j) = 0;
+        CS.AIdc(i,n+nc+j) = 0;
       }
     }
   }
 
-  CS.AIdcD.block(na, 0,  nu, na)  = CS.P*CS.H*CS.S.transpose();
-  CS.AIdcD.block(na, na, nu, nu)  = CS.P*CS.H*CS.P.transpose();
-  CS.AIdcD.block(na,  n, nu, nc)  = CS.P*CS.G.transpose();
+  CS.AIdc.block(na, 0,  nu, na)  = CS.P*CS.H*CS.S.transpose();
+  CS.AIdc.block(na, na, nu, nu)  = CS.P*CS.H*CS.P.transpose();
+  CS.AIdc.block(na,  n, nu, nc)  = CS.P*CS.G.transpose();
 
-  CS.AIdcD.block( n,  0, nc, na)  = CS.G*CS.S.transpose();
-  CS.AIdcD.block( n, na, nc, nu)  = CS.G*CS.P.transpose();
+  CS.AIdc.block( n,  0, nc, na)  = CS.G*CS.S.transpose();
+  CS.AIdc.block( n, na, nc, nu)  = CS.G*CS.P.transpose();
 
   //Zero the right block
   for(unsigned int i=n;i<(n+nc);++i){
     for(unsigned int j=n;j<(n+nc);++j){
-      CS.AIdcD(i,j) = 0.;
+      CS.AIdc(i,j) = 0.;
     }
   }
 
@@ -1786,41 +1790,41 @@ void InverseDynamicsConstraints(
   for(unsigned int i=0; i<na; ++i){
     for(unsigned int j=0; j<na; ++j){
       if(i == j){
-        CS.AIdcD(n+nc+i,j) = 1.;
+        CS.AIdc(n+nc+i,j) = 1.;
       }else{
-        CS.AIdcD(n+nc+i,j) = 0;
+        CS.AIdc(n+nc+i,j) = 0;
       }
     }
   }
 
 
-  CS.vIdcD = - CS.S*CS.C;
-  CS.wIdcD = - CS.P*CS.C;
+  CS.vIdc = - CS.S*CS.C;
+  CS.wIdc = - CS.P*CS.C;
 
   unsigned int i,j;
   unsigned int i0,i1;
   i0=0;
   i1=na;
   for(i=i0; i<i1;++i){
-    CS.bIdcD[i] = CS.vIdcD[i-i0];
+    CS.bIdc[i] = CS.vIdc[i-i0];
   }
   i0=na;
   i1=na+nu;
   for(i=i0; i<i1;++i){
-    CS.bIdcD[i] = CS.wIdcD[i-i0];
+    CS.bIdc[i] = CS.wIdc[i-i0];
   }
 
   i0 = n;
   i1 = i0+nc;
   for(i=i0;i<i1;++i){
-    CS.bIdcD[i] = CS.gamma[i-i0]; //n.b. -'ve sign already multiplied into gamma
+    CS.bIdc[i] = CS.gamma[i-i0]; //n.b. -'ve sign already multiplied into gamma
   }
 
   i0 = n+nc;
   i1 = i0 + na;
-  CS.vIdcD = CS.S*QDDotDesired;
+  CS.vIdc = CS.S*QDDotDesired;
   for(i=i0;i<i1;++i){
-    CS.bIdcD[i] = CS.vIdcD[i-i0]; //n.b. -'ve sign already multiplied into gamma
+    CS.bIdc[i] = CS.vIdc[i-i0]; //n.b. -'ve sign already multiplied into gamma
   }
 
 
@@ -1829,32 +1833,32 @@ void InverseDynamicsConstraints(
   //std::cout << "b"      << std::endl;
   //std::cout << CS.bIdcD << std::endl;
 
-  SolveLinearSystem(CS.AIdcD,CS.bIdcD,CS.xIdcD,CS.linear_solver);
+  SolveLinearSystem(CS.AIdc,CS.bIdc,CS.xIdc,CS.linear_solver);
 
   i0 = 0;
   i1 = i0+na;
   for(i=i0;i<i1;++i){
-    CS.vIdcD[i-i0] =  CS.xIdcD[i];
+    CS.vIdc[i-i0] =  CS.xIdc[i];
   }
   i0 = na;
   i1 = i0+nu;
   for(i=i0;i<i1;++i){
-    CS.wIdcD[i-i0] =  CS.xIdcD[i];
+    CS.wIdc[i-i0] =  CS.xIdc[i];
   }
-  QDDotOutput = CS.S.transpose()*CS.vIdcD + CS.P.transpose()*CS.wIdcD;
+  QDDotOutput = CS.S.transpose()*CS.vIdc + CS.P.transpose()*CS.wIdc;
 
   i0 = n;
   i1 = i0+nc;
   for(i=i0;i<i1;++i){
-    CS.force[i-i0] = -CS.xIdcD[i];
+    CS.force[i-i0] = -CS.xIdc[i];
   }
   i0 = n+nc;
   i1 = i0+na;
   for(i=i0; i<i1;++i){
-    CS.vIdcD[i-i0] = -CS.xIdcD[i];
+    CS.vIdc[i-i0] = -CS.xIdc[i];
   }
 
-  TauOutput = CS.S.transpose()*CS.vIdcD;
+  TauOutput = CS.S.transpose()*CS.vIdc;
 
 }
 
@@ -1889,20 +1893,26 @@ void InverseDynamicsConstraintsRelaxed(
   unsigned int nu = n-na;
 
 
-  CS.W.setIdentity(); //MM: This must be the identity matrix for now
-                      //    to take advantage of a small update that will
-                      //    enable QDDotDesired to be satisfied exactly in
-                      //    the actuated domain.
+  //MM: Update to Henning's formulation s.t. the relaxed IDC operator will
+  //    exactly satisfy QDDotDesired if it is possible.
+  //CS.W.setZero();
+  double diag = 100.*CS.H.maxCoeff();
+  for(unsigned int i=0;i<CS.W.rows();++i){
+    CS.W(i,i)    = diag;
+    CS.Winv(i,i) = 1./diag;
+  }
+  //CS.W = CS.W - CS.S*CS.H*CS.S.transpose();
+  //CS.Winv = CS.W.inverse();
+
+
+
   CS.F.block(  0,  0, na, na) = CS.S*CS.H*CS.S.transpose() + CS.W;
   CS.F.block(  0, na, na, nu) = CS.S*CS.H*CS.P.transpose();
   CS.F.block( na,  0, nu, na) = CS.P*CS.H*CS.S.transpose();
   CS.F.block( na, na, nu, nu) = CS.P*CS.H*CS.P.transpose();
 
-  //Making use of the matricies already set up for the QR decomposition of G'
-  //CS.g.block(0, 0, CS.S.rows(),1) = (CS.W*0.1)*CS.S*QDDotDesired - CS.S*(CS.C);
-  //CS.g.block(CS.S.rows(),0,CS.P.row(),1) = ;
-  CS.GT.block(  0, 0,na, nc) = CS.S*CS.G.transpose();
-  CS.GT.block( na, 0,nu, nc) = CS.P*CS.G.transpose();
+  CS.GT.block(  0, 0,na, nc) = CS.S*(CS.G.transpose());
+  CS.GT.block( na, 0,nu, nc) = CS.P*(CS.G.transpose());
 
   CS.GT_qr.compute (CS.GT);
 #ifdef RBDL_USE_SIMPLE_MATH
@@ -1911,19 +1921,23 @@ void InverseDynamicsConstraintsRelaxed(
     CS.GT_qr.householderQ().evalTo (CS.GT_qr_Q);
 #endif
 
+  //GT = [Y  Z] * [ R ]
+  //              [ 0 ]
+
   CS.R  = CS.GT_qr_Q.transpose()*CS.GT;
   CS.Ru = CS.R.block(0,0,nc,nc);
 
   CS.Y = CS.GT_qr_Q.block( 0, 0,  n, nc    );
   CS.Z = CS.GT_qr_Q.block( 0, nc, n, (n-nc));
-  MatrixNd Gerr = CS.GT - CS.Y*CS.Ru; //This checks out just fine.
 
-  //We've updated QDDotDesired by changing the equation in this way
-  //so that the term SN is cancelled. Before we had a rhs upper block of
+  //MM: Update to Henning's formulation s.t. the relaxed IDC operator will
+  //    exactly satisfy QDDotDesired if it is possible.
+  //
+  //Modify QDDotDesired so that SN is cancelled. Before we had a rhs upper
   //
   // [K][S](qdd*) - [S](N)
   //
-  // Set K = I
+  // Set W = I
   //
   // [S]( qdd* - N )
   //
@@ -1932,8 +1946,8 @@ void InverseDynamicsConstraintsRelaxed(
   // qdd1* = qdd* + N
   //
   //
-  //CS.u = CS.S*CS.C - CS.W*CS.S*QDDotDesired;
-  CS.u = CS.S*CS.C - CS.W*CS.S*(QDDotDesired + CS.C);
+  CS.u = CS.S*CS.C - CS.W*(CS.S*(QDDotDesired
+                                 + (CS.S.transpose()*CS.Winv*CS.S)*CS.C));
   CS.v = CS.P*CS.C;
 
   for(unsigned int i=0; i<CS.S.rows();++i){
@@ -1977,7 +1991,9 @@ void InverseDynamicsConstraintsRelaxed(
 
   //Eqn. 32e the equation for tau in the manuscript has a sign error on
   //the right hand side.
-  TauOutput = (CS.S.transpose()*CS.W*CS.S)*(QDDotDesired+CS.C-QDDotOutput);
+  TauOutput = (CS.S.transpose()*CS.W*CS.S)*(
+                QDDotDesired+(CS.S.transpose()*CS.Winv*CS.S)*CS.C
+                -QDDotOutput);
 
 }
 

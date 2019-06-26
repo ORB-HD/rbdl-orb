@@ -488,7 +488,7 @@ struct RBDL_DLLAPI ConstraintSet {
   /// Matrix that holds the relative cost of deviating from the desired
   /// accelerations
   Math::MatrixNd W;
-
+  Math::MatrixNd Winv;
   Math::VectorNd u;
   Math::VectorNd v;
 
@@ -522,14 +522,12 @@ struct RBDL_DLLAPI ConstraintSet {
   Math::VectorNd qddot_y;
   Math::VectorNd qddot_z;
 
-  Math::MatrixNd AIdcD;
-  Math::MatrixNd KIdcD;
-  Math::VectorNd bIdcD;
-  Math::VectorNd xIdcD;
-  Math::VectorNd vIdcD;
-  Math::VectorNd wIdcD;
-
-
+  Math::MatrixNd AIdc;
+  Math::MatrixNd KIdc;
+  Math::VectorNd bIdc;
+  Math::VectorNd xIdc;
+  Math::VectorNd vIdc;
+  Math::VectorNd wIdc;
   // Variables used by the IABI methods
 
   /// Workspace for the Inverse Articulated-Body Inertia.
@@ -672,7 +670,7 @@ void CalcConstrainedSystemVariables (
   * this number of iterations.
   * 
   * \return true if the generalized joint positions were computed successfully,
-  * false otherwise.
+  * false otherwise.f
   *
   */
 RBDL_DLLAPI
@@ -869,9 +867,10 @@ void ForwardDynamicsContactsKokkevis (
 
 
 /**
- @brief An inverse-dynamics operator will solve for the relaxed generalized
-        accelerations and physically consistent forces that satisfy the
-        constrained equations of motion given a vector of desired accelerations
+ @brief An inverse-dynamics operator will evaluate the generalized forces and
+        accelerations that satisfy the constrained equations of motion and
+        minimize the distance to a vector of desired accelerations in the
+        actuated subspace of the model
         (set actuated degrees-of-freedom using the function SetActuationMap).
 
  \par
@@ -895,52 +894,21 @@ void ForwardDynamicsContactsKokkevis (
     \end{array}
     \right)
 \f] 
-such that the accelerations of the actuated degrees of freedom, 
-\f$\ddot{q}^a\f$, match the acuated subspace of \f$\ddot{q}\f$
+such that the distance to a vector of desired accelerations \f$\ddot{q}^*\f$ is
+minimized
 \f[
-  S \ddot{q} = S \ddot{q}^a
+  (S(\ddot{q}^*-\ddot{q}))^T W (S(\ddot{q}^*-\ddot{q}))
 \f]
 where \f$S\f$ is a selection matrix that returns the actuated indices of 
-\f$\ddot{q}\f$. Finally, we would like that the distance between the desired 
-accelerations, \f$\ddot{q}^*\f$, and the actuated accelerations is minimized
+\f$\ddot{q}\f$. In contrast to the InverseDynamicsConstraints method, this
+method can tolerate systems where
+
 \f[
- \min_{\ddot{q},\ddot{q}^*} (S\ddot{q}^*-S\ddot{q}^a)^T W (S\ddot{q}^*-S\ddot{q}^a).
+  \text{rank}(PG^T) < n-n_a
 \f]
- This system can be solved by forming the KKT system
- \f[ \left(
-   \begin{array}{cc|cc}
-    H &   0         & G^T & S^T \\
-    0 &  S^T W S    &   0 & S^T \\
-    \hline 
-    G &  0          &   0 &  0  \\
-    S &  S          &   0 &  0  \\
-   \end{array}
- \right)
- \left(
-   \begin{array}{c}
-    \ddot{q}\\
-    \ddot{q}^a\\
-    -\lambda\\
-    -\tau
-   \end{array}
- \right)
- =
- \left(
-   \begin{array}{c}
-    -C\\
-     S^T W S \ddot{q}^*\\
-    \gamma\\
-    0
-   \end{array}
- \right) \f]
- and solving for the \f$\ddot{q}\f$, \f$\ddot{q}^a\f$, \f$\lambda\f$ the
- Lagrange multipliers of the constraints, and \f$\tau^a\f$ the vector of
- actuated generalized forces. This function directly solves the above system
- where the large matrix has the dimensions of \f$(3n+c)\times(3n+c)\f$,
- where \f$n\f$ is the number of degrees-of-freedom of the model and \f$c\f$ is
- the number of constraints. While the mathematics of direct method (the above 
- KKT system) are most intuitive to understand this results in a large set 
- of equations.
+where \f$n\f$ is the number of degrees of freedom and \f$n_a\f$ is the
+number of actuated degrees of freedom.
+
 
  \par
  This implementation does not directly solve the above system of equations but 
