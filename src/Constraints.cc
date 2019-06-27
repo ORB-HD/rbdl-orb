@@ -386,7 +386,7 @@ void ConstraintSet::SetActuationMap(const Model &model,
 
   GT.conservativeResize(n,nc);
 
-
+  GPT.conservativeResize(nc,nu);
 
 }
 
@@ -1716,6 +1716,46 @@ void ForwardDynamicsContactsKokkevis (
   LOG << "QDDot after applying f_ext: " << QDDot.transpose() << std::endl;
 }
 
+
+RBDL_DLLAPI
+bool isConstrainedSystemFullyActuated(
+    Model &model,
+    const Math::VectorNd &Q,
+    const Math::VectorNd &QDot,
+    ConstraintSet &CS,
+    std::vector<Math::SpatialVector> *f_ext)
+{
+
+  LOG << "-------- " << __func__ << " ------" << std::endl;
+
+
+  assert (CS.S.cols()    == QDot.rows());
+  assert (CS.KIdc.rows() == CS.S.rows());
+  assert (CS.KIdc.rows() == CS.KIdc.cols());
+
+  unsigned int n  = unsigned(    CS.H.rows());
+  unsigned int nc = unsigned( CS.name.size());
+  unsigned int na = unsigned(    CS.S.rows());
+  unsigned int nu = n-na;
+
+
+  CalcConstrainedSystemVariables(model,Q,QDot,VectorNd::Zero(QDot.rows()),CS,f_ext);
+
+  CS.GPT = CS.G*CS.P.transpose();
+
+  CS.GPT_full_qr.compute(CS.GPT);
+  unsigned int r = unsigned(CS.GPT_full_qr.rank());
+
+  bool isCompatible = false;
+  if(r == (n-na)){
+    isCompatible = true;
+  }else{
+    isCompatible = false;
+  }
+
+  return isCompatible;
+
+}
 
 RBDL_DLLAPI
 void InverseDynamicsConstraints(
