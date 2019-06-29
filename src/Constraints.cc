@@ -335,8 +335,6 @@ void ConstraintSet::SetActuationMap(const Model &model,
 
   AIdc.resize(n+nc+na,n+nc+na);
     AIdc.setZero();
-  KIdc.resize(na,na);
-    KIdc.setZero();
   xIdc.resize(n+nc+na);
     xIdc.setZero();
   bIdc.resize(n+nc+na);
@@ -1717,6 +1715,7 @@ void ForwardDynamicsContactsKokkevis (
 }
 
 
+#ifndef RBDL_USE_SIMPLE_MATH
 RBDL_DLLAPI
 bool isConstrainedSystemFullyActuated(
     Model &model,
@@ -1730,8 +1729,6 @@ bool isConstrainedSystemFullyActuated(
 
 
   assert (CS.S.cols()    == QDot.rows());
-  assert (CS.KIdc.rows() == CS.S.rows());
-  assert (CS.KIdc.rows() == CS.KIdc.cols());
 
   unsigned int n  = unsigned(    CS.H.rows());
   unsigned int nc = unsigned( CS.name.size());
@@ -1756,6 +1753,7 @@ bool isConstrainedSystemFullyActuated(
   return isCompatible;
 
 }
+#endif
 
 RBDL_DLLAPI
 void InverseDynamicsConstraints(
@@ -1777,9 +1775,7 @@ void InverseDynamicsConstraints(
   assert (TauOutput.size()    == CS.H.rows());
 
   assert (CS.S.cols()     == QDDotDesired.rows());
-  assert (CS.KIdc.rows() == CS.S.rows());
-  assert (CS.KIdc.rows() == CS.KIdc.cols());
-
+  
   unsigned int n  = unsigned(    CS.H.rows());
   unsigned int nc = unsigned( CS.name.size());
   unsigned int na = unsigned(    CS.S.rows());
@@ -1796,8 +1792,7 @@ void InverseDynamicsConstraints(
   //  [ JS'        JP'     0      ][-lambda]   [ -gamma ]
   //  [ I                         ][   -tau]   [  v*     ]
   //double alpha = 0.1;
-  CS.KIdc.setIdentity();// = alpha*CS.S*CS.H*CS.S.transpose();
-
+  
   CS.AIdc.block( 0,  0, na, na ) = CS.S*CS.H*CS.S.transpose();
   CS.AIdc.block( 0, na, na, nu ) = CS.S*CS.H*CS.P.transpose();
   CS.AIdc.block( 0,  n, na, nc ) = CS.S*CS.G.transpose();
@@ -1936,7 +1931,15 @@ void InverseDynamicsConstraintsRelaxed(
   //MM: Update to Henning's formulation s.t. the relaxed IDC operator will
   //    exactly satisfy QDDotControls if it is possible.
   //CS.W.setZero();
-  double diag = 100.*CS.H.maxCoeff();
+  double diag = 0.;//100.*CS.H.maxCoeff();
+  for(unsigned int i=0; i<CS.H.rows();++i){
+    for(unsigned int j=0; j<CS.H.cols();++j){
+      if(fabs(CS.H(i,j)) > diag){
+        diag = fabs(CS.H(i,j));
+      }
+    }    
+  }
+  diag = diag*100.;
   for(unsigned int i=0;i<CS.W.rows();++i){
     CS.W(i,i)    = diag;
     CS.Winv(i,i) = 1./diag;
@@ -1986,12 +1989,12 @@ void InverseDynamicsConstraintsRelaxed(
   // qdd1* = qdd* + N
   //
   //
-  //CS.u = CS.S*CS.C - CS.W*(CS.S*(QDDotControls
-  //                               + (CS.S.transpose()*CS.Winv*CS.S)*CS.C));
+  CS.u = CS.S*CS.C - CS.W*(CS.S*(QDDotControls
+                                 + (CS.S.transpose()*CS.Winv*CS.S)*CS.C));
   //
   //Because the CS.S*CS.C term is perfectly compensated for we can
   //save a little computation and just write:
-  CS.u = -CS.W*CS.S*QDDotControls;
+  //CS.u = -CS.W*CS.S*QDDotControls;
   CS.v =  CS.P*CS.C;
 
   for(unsigned int i=0; i<CS.S.rows();++i){

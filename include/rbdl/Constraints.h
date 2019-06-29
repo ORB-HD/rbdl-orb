@@ -528,7 +528,6 @@ struct RBDL_DLLAPI ConstraintSet {
   Math::VectorNd qddot_z;
 
   Math::MatrixNd AIdc;
-  Math::MatrixNd KIdc;
   Math::VectorNd bIdc;
   Math::VectorNd xIdc;
   Math::VectorNd vIdc;
