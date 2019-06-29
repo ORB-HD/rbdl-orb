@@ -1907,7 +1907,7 @@ void InverseDynamicsConstraintsRelaxed(
     Model &model,
     const Math::VectorNd &Q,
     const Math::VectorNd &QDot,
-    const Math::VectorNd &QDDotDesired,
+    const Math::VectorNd &QDDotControls,
     ConstraintSet &CS,
     Math::VectorNd &QDDotOutput,
     Math::VectorNd &TauOutput,
@@ -1918,7 +1918,7 @@ void InverseDynamicsConstraintsRelaxed(
   //Check that the input vectors and matricies are sized appropriately
   assert(Q.size()               == model.q_size);
   assert(QDot.size()            == model.qdot_size);
-  assert(QDDotDesired.size()    == model.dof_count);
+  assert(QDDotControls.size()    == model.dof_count);
   assert(CS.S.cols()            == model.dof_count);
   assert(CS.W.rows()            == CS.W.cols());
   assert(CS.W.rows()            == CS.S.rows());
@@ -1934,7 +1934,7 @@ void InverseDynamicsConstraintsRelaxed(
 
 
   //MM: Update to Henning's formulation s.t. the relaxed IDC operator will
-  //    exactly satisfy QDDotDesired if it is possible.
+  //    exactly satisfy QDDotControls if it is possible.
   //CS.W.setZero();
   double diag = 100.*CS.H.maxCoeff();
   for(unsigned int i=0;i<CS.W.rows();++i){
@@ -1971,9 +1971,9 @@ void InverseDynamicsConstraintsRelaxed(
   CS.Z = CS.GT_qr_Q.block( 0, nc, n, (n-nc));
 
   //MM: Update to Henning's formulation s.t. the relaxed IDC operator will
-  //    exactly satisfy QDDotDesired if it is possible.
+  //    exactly satisfy QDDotControls if it is possible.
   //
-  //Modify QDDotDesired so that SN is cancelled. Before we had a rhs upper
+  //Modify QDDotControls so that SN is cancelled. Before we had a rhs upper
   //
   // [K][S](qdd*) - [S](N)
   //
@@ -1986,9 +1986,13 @@ void InverseDynamicsConstraintsRelaxed(
   // qdd1* = qdd* + N
   //
   //
-  CS.u = CS.S*CS.C - CS.W*(CS.S*(QDDotDesired
-                                 + (CS.S.transpose()*CS.Winv*CS.S)*CS.C));
-  CS.v = CS.P*CS.C;
+  //CS.u = CS.S*CS.C - CS.W*(CS.S*(QDDotControls
+  //                               + (CS.S.transpose()*CS.Winv*CS.S)*CS.C));
+  //
+  //Because the CS.S*CS.C term is perfectly compensated for we can
+  //save a little computation and just write:
+  CS.u = -CS.W*CS.S*QDDotControls;
+  CS.v =  CS.P*CS.C;
 
   for(unsigned int i=0; i<CS.S.rows();++i){
     CS.g[i] = CS.u[i];
@@ -2032,7 +2036,7 @@ void InverseDynamicsConstraintsRelaxed(
   //Eqn. 32e the equation for tau in the manuscript has a sign error on
   //the right hand side.
   TauOutput = (CS.S.transpose()*CS.W*CS.S)*(
-                QDDotDesired+(CS.S.transpose()*CS.Winv*CS.S)*CS.C
+                QDDotControls+(CS.S.transpose()*CS.Winv*CS.S)*CS.C
                 -QDDotOutput);
 
 }

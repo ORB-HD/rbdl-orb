@@ -397,7 +397,7 @@ struct RBDL_DLLAPI ConstraintSet {
 
   /**
     \brief Initializes and allocates memory needed for 
-            InverseDynamicsConstraints
+            InverseDynamicsConstraints and InverseDynamicsConstraintsRelaxed
 
     This function allocates the temporary vectors and matrices needed
     for the RigidBodyDynamics::InverseDynamicsConstraints and RigidBodyDynamics::InverseDynamicsConstraintsRelaxed
@@ -883,50 +883,72 @@ void ForwardDynamicsContactsKokkevis (
   Koch [1] and Kudruss [2]. When given a vector of
   generalized positions, generalized velocities, and desired generalized
   accelerations will solve for a set of generalized accelerations and forces
-  which satisfy the constrained equations of motion
-  \f[ \left( \begin{array}{cc}
-       H & G^T \\
-       G & 0
-     \end{array} \right)
-     \left( \begin{array}{c}
-     \ddot{q} \\
-     -\lambda
-     \end{array} \right)
-     =\left(
-     \begin{array}{c}
-        \tau - C\\
-        \gamma
-     \end{array}
-     \right)
-  \f]
-  such that the distance to a vector of desired accelerations \f$\ddot{q}^*\f$ is
-  minimized
+  which satisfy the constrained equations of motion such that the solution 
+  is close to a vector of desired acceleration controls \f$x\f$ 
   \f[
-    (S(\ddot{q}^*-\ddot{q}))^T W (S(\ddot{q}^*-\ddot{q}))
+   \min{\ddot{q}} \dfrac{1}{2} \ddot{q}^T H \ddot{q} + C^T \ddot{q} + \dfrac{1}{2}(Sx-S\ddot{q})^{T} W (Sx-S\ddot{q})
   \f]
-  where \f$S\f$ is a selection matrix that returns the actuated indices of
-  \f$\ddot{q}\f$. In contrast to the
+  s.t.
+  \f[
+   G \ddot{q} = \gamma.
+  \f]
+  In contrast to the
   RigidBodyDynamics::InverseDynamicsConstraints method, this method can work
   with underactuated systems. Mathematically this method does not depend on
   \f[
     \text{rank}(GP^T) < n-n_a
   \f]
   where \f$n\f$ is the number of degrees of freedom and \f$n_a\f$ is the
-  number of actuated degrees of freedom.
+  number of actuated degrees of freedom. 
   \par
-  This method implements the null-space formulation presented in Sec. 2.5 of
-  Koch. As with the RigidBodyDynamics::InverseDynamicsConstraints method the
+  For those readers who are unfamiliar with quadratic programs (QP), like the 
+  constrained minimization problem above, read the following important notes.
+  One consequence of this additional flexibility is that the term \f$x\f$ should 
+  now be interpreted as a control vector: 
+
+  -# The minimum of the above constrained QP may not be \f$x = S\ddot{q}^*\f$ 
+  where \f$\ddot{q}^*\f$ is the vector of desired accelerations. The terms 
+  \f$\dfrac{1}{2} \ddot{q}^T H \ddot{q}\f$ will \f$C^T \ddot{q}\f$ pull
+  the solution away from this value and the constraint \f$G \ddot{q} = \gamma\f$
+  may make it impossible to exactly satisfy \f$S\ddot{q}*=S\ddot{q}\f$.   
+  -# Koch's original formulation has been modifed so that setting 
+  \f$x = \ddot{q}^*\f$ will yield a solution for \f$\ddot{q}\f$ that is close 
+  to \f$\ddot{q}^*\f$. However, even if an exact solution for 
+  \f$\ddot{q} = \ddot{q}^*\f$ exists it will may not be realized using
+  \f$x = \ddot{q}*\f$. Iteration may be required.
+
+  To solve the above constrained minimization problem we take the derivative
+  of the above system of equations w.r.t. \f$\ddot{q}\f$ and \f$\lambda\f$
+  set the result to zero and solve. This results in the KKT system
+ \f[ 
+    \left( \begin{array}{cc}
+      H+K & G^T \\
+      G & 0
+    \end{array} \right)
+    \left( \begin{array}{c}
+    \ddot{q} \\
+    -\lambda
+    \end{array} \right)
+    =\left(
+    \begin{array}{c}
+       (S^T W S)x - C\\
+       \gamma
+    \end{array}
+    \right).
+  \f]
+  This system of linear equations is not solved directly, but instead
+  the null-space formulation presented in Sec. 2.5 of
+  Koch as it is much faster. 
+  As with the RigidBodyDynamics::InverseDynamicsConstraints method the
   matrices \f$S\f$ and \f$P\f$ select the actuated and unactuated parts of
   \f[\ddot{q} = S^T u + P^T v
   \f], 
   and
-  \f[u^* = S^T \ddot{q}^*
+  \f[u^* = S^T x
   \f],
   where \f$ S \f$ is a selection matrix that returns the actuated subspace of
   \f$ \ddot{q} \f$ (\f$ S\ddot{q} \f$) and \f$ P \f$ returns the unactuated
-  subspace of \f$ \ddot{q} \f$ (\f$ P\ddot{q} \f$). This reduces the
-  \f$ (3n+c)\times(3n+c) \f$ KKT system to a smaller
-  \f$ (n+c)\times(n+c) \f$ system
+  subspace of \f$ \ddot{q} \f$ (\f$ P\ddot{q} \f$).
   \f[
    \left(
      \begin{array}{ccc}
@@ -1036,9 +1058,9 @@ void ForwardDynamicsContactsKokkevis (
   \f[
     \ddot{q} = S^T u + P^T v.
   \f]
-  This method is less computationally expensive than the direct method since  
+  This method is less computationally expensive than the KKT system directly since  
   \f$R\f$ is of size \f$ c \times c \f$ and \f$ (Z^T F Z)\f$ is of size
-  \f$ (n-c) \times (n-c) \f$ which is far smaller than the \f$ (3n+c) \times (3n+c) \f$ 
+  \f$ (n-c) \times (n-c) \f$ which is far smaller than the \f$ (n+c) \times (n+c) \f$ 
   matrix used in the direct method. As it is relatively inexpensive, the
   dual variables are also evaluated
   \f[
@@ -1046,14 +1068,14 @@ void ForwardDynamicsContactsKokkevis (
   \f]
   and
   \f[
-    \tau = S^T W S (\ddot{q}^*-\ddot{q})
+    \tau = S^T W S (x-\ddot{q})
   \f]
 
 
  \note Two modifications have been made to this implementation to bring the
-       solution to \f$S \ddot{q}\f$ much closer to \f$S \ddot{q}^*\f$
-       -# The vector \f$u^*\f$ has been modifed to \f$u^* = S\ddot{q}^* + (S' W^{-1} S)C\f$ so that the term \f$SC\f$ in the upper right hand side is compensated
-       -# The weighting matrix \f$W\f$ has a main diagional that is scaled to be uniformly 100 times larger than the biggest element in M. This will drive the solution closer to \f$S \ddot{q}^*\f$ without hurting the scaling of the matrix too badly.
+       solution to \f$S \ddot{q}\f$ much closer to \f$S x\f$
+       -# The vector \f$u^*\f$ has been modifed to \f$u^* = Sx + (S^T W^{-1} S)C\f$ so that the term \f$SC\f$ in the upper right hand side is compensated
+       -# The weighting matrix \f$W\f$ has a main diagional that is scaled to be uniformly 100 times larger than the biggest element in M. This will drive the solution closer to \f$S x\f$ without hurting the scaling of the matrix too badly.
 
  \note The Lagrange multipliers are solved for and stored in the `force' field
        of the ConstraintSet structure.
@@ -1073,15 +1095,10 @@ void ForwardDynamicsContactsKokkevis (
  \param Q:     N-element vector of generalized positions
  \param QDot:  N-element vector of generalized velocities
 
- \param QDDotDesired:
-      N-element vector of desired generalized accelerations
-     (\f$\ddot{q}^*\f$ in the above equation). Note that
-     in this operator the correspondance between \f$S\ddot{q}\f$
-     and \f$S\ddot{q}^*\f$ is lost: you may need to put
-     strange values into QDDotDesired to reach the acceleration
-     that you want. Originally this input vector was not set by
-     hand, but was used as input for an optimization routine.
-
+ \param QDDotControls:
+      N-element vector of generalized acceleration controls
+     (\f$x\f$ in the above equation). If the idea of a control vector is
+     unclear please read the above text for additional details.
 
  \param CS: Structure that contains information about the set of kinematic
             constraints. Note that the 'force' vector is appropriately updated
@@ -1102,7 +1119,7 @@ void InverseDynamicsConstraintsRelaxed(
     Model &model,
     const Math::VectorNd &Q,
     const Math::VectorNd &QDot,
-    const Math::VectorNd &QDDotDesired,
+    const Math::VectorNd &QDDotControls,
     ConstraintSet &CS,
     Math::VectorNd &QDDotOutput,
     Math::VectorNd &TauOutput,
