@@ -333,17 +333,6 @@ void ConstraintSet::SetActuationMap(const Model &model,
   }
   nu = n-na;
 
-  AIdc.resize(n+nc+na,n+nc+na);
-    AIdc.setZero();
-  xIdc.resize(n+nc+na);
-    xIdc.setZero();
-  bIdc.resize(n+nc+na);
-    bIdc.setZero();
-  vIdc.resize(na);
-    vIdc.setZero();
-  wIdc.resize(nu);
-    wIdc.setZero();
-
   S.conservativeResize(na,model.dof_count);
   S.setZero();
   P.conservativeResize(n-na,model.dof_count);
@@ -376,6 +365,15 @@ void ConstraintSet::SetActuationMap(const Model &model,
   F.conservativeResize(dim,dim);
   F.setZero();
 
+  Ful.conservativeResize(na,na);
+  Ful.setZero();
+  Fur.conservativeResize(na,nu);
+  Fur.setZero();
+  Fll.conservativeResize(nu,na);
+  Fll.setZero();
+  Flr.conservativeResize(nu,nu);
+  Flr.setZero();
+
   g.conservativeResize(n);
 
   Ru.conservativeResize(nc,nc);
@@ -383,6 +381,8 @@ void ConstraintSet::SetActuationMap(const Model &model,
   pz.conservativeResize(n-nc);
 
   GT.conservativeResize(n,nc);
+  GTu.conservativeResize(na,nc);
+  GTl.conservativeResize(nu,nc);
 
   GPT.conservativeResize(nc,nu);
 
@@ -1754,7 +1754,7 @@ bool isConstrainedSystemFullyActuated(
 
 }
 #endif
-
+#ifndef RBDL_USE_SIMPLE_MATH
 RBDL_DLLAPI
 void InverseDynamicsConstraints(
     Model &model,
@@ -1787,115 +1787,59 @@ void InverseDynamicsConstraints(
   // This implementation follows the projected KKT system described in
   // Eqn. 5.20 of Henning Koch's thesis work. Note that this will fail
   // for under actuated systems
-  //  [ SMS'      SMP'    SJ'    I][      v]   [ -SC    ]
-  //  [ PMS'      PMP'    PJ'     ][      w] = [ -PC    ]
+  //  [ SMS'      SMP'    SJ'    I][      u]   [ -SC    ]
+  //  [ PMS'      PMP'    PJ'     ][      v] = [ -PC    ]
   //  [ JS'        JP'     0      ][-lambda]   [ -gamma ]
   //  [ I                         ][   -tau]   [  v*     ]
   //double alpha = 0.1;
   
-  CS.AIdc.block( 0,  0, na, na ) = CS.S*CS.H*CS.S.transpose();
-  CS.AIdc.block( 0, na, na, nu ) = CS.S*CS.H*CS.P.transpose();
-  CS.AIdc.block( 0,  n, na, nc ) = CS.S*CS.G.transpose();
+  CS.Ful = CS.S*CS.H*CS.S.transpose();
+  CS.Fur = CS.S*CS.H*CS.P.transpose();
+  CS.Fll = CS.P*CS.H*CS.S.transpose();
+  CS.Flr = CS.P*CS.H*CS.P.transpose();
 
-  for(unsigned int i=0; i<na; ++i){
-    for(unsigned int j=0; j<na; ++j){
-      if(i == j){
-        CS.AIdc(i,n+nc+j) = 1.;
-      }else{
-        CS.AIdc(i,n+nc+j) = 0;
-      }
-    }
+  CS.GTu = CS.S*(CS.G.transpose());
+  CS.GTl = CS.P*(CS.G.transpose());
+
+  //Exploiting the block triangular structure
+  //u:
+  //I u = S*qdd*
+  CS.u = CS.S*QDDotDesired;
+  // v
+  //(JP')v = -gamma - (JS')u
+  //Using GT
+
+  //This fails using SimpleMath and I'm not sure how to fix it
+  SolveLinearSystem( CS.GTl.transpose(),
+                     CS.gamma - CS.GTu.transpose()*CS.u,
+                     CS.v, CS.linear_solver);
+
+  // lambda
+  SolveLinearSystem(CS.GTl,
+                    -CS.P*CS.C
+                    - CS.Fll*CS.u
+                    - CS.Flr*CS.v,
+                    CS.force,
+                    CS.linear_solver);
+
+  for(unsigned int i=0; i<CS.force.rows();++i){
+    CS.force[i] *= -1.0;
   }
 
-  CS.AIdc.block(na, 0,  nu, na)  = CS.P*CS.H*CS.S.transpose();
-  CS.AIdc.block(na, na, nu, nu)  = CS.P*CS.H*CS.P.transpose();
-  CS.AIdc.block(na,  n, nu, nc)  = CS.P*CS.G.transpose();
+  //Evaluating qdd
+  QDDotOutput = CS.S.transpose()*CS.u + CS.P.transpose()*CS.v;
 
-  CS.AIdc.block( n,  0, nc, na)  = CS.G*CS.S.transpose();
-  CS.AIdc.block( n, na, nc, nu)  = CS.G*CS.P.transpose();
-
-  //Zero the right block
-  for(unsigned int i=n;i<(n+nc);++i){
-    for(unsigned int j=n;j<(n+nc);++j){
-      CS.AIdc(i,j) = 0.;
-    }
-  }
-
-  //Now add the identity matrix to the bottom left corner
-  for(unsigned int i=0; i<na; ++i){
-    for(unsigned int j=0; j<na; ++j){
-      if(i == j){
-        CS.AIdc(n+nc+i,j) = 1.;
-      }else{
-        CS.AIdc(n+nc+i,j) = 0;
-      }
-    }
-  }
+  //Evaluating tau
+  TauOutput = -CS.S.transpose()*( -CS.S*CS.C
+                               -( CS.Ful*CS.u
+                                 +CS.Fur*CS.v
+                                 -CS.GTu*CS.force));
 
 
-  CS.vIdc = - CS.S*CS.C;
-  CS.wIdc = - CS.P*CS.C;
 
-  unsigned int i,j;
-  unsigned int i0,i1;
-  i0=0;
-  i1=na;
-  for(i=i0; i<i1;++i){
-    CS.bIdc[i] = CS.vIdc[i-i0];
-  }
-  i0=na;
-  i1=na+nu;
-  for(i=i0; i<i1;++i){
-    CS.bIdc[i] = CS.wIdc[i-i0];
-  }
-
-  i0 = n;
-  i1 = i0+nc;
-  for(i=i0;i<i1;++i){
-    CS.bIdc[i] = CS.gamma[i-i0]; //n.b. -'ve sign already multiplied into gamma
-  }
-
-  i0 = n+nc;
-  i1 = i0 + na;
-  CS.vIdc = CS.S*QDDotDesired;
-  for(i=i0;i<i1;++i){
-    CS.bIdc[i] = CS.vIdc[i-i0]; //n.b. -'ve sign already multiplied into gamma
-  }
-
-
-  //std::cout << "A"      << std::endl;
-  //std::cout << CS.AIdcD << std::endl;
-  //std::cout << "b"      << std::endl;
-  //std::cout << CS.bIdcD << std::endl;
-
-  SolveLinearSystem(CS.AIdc,CS.bIdc,CS.xIdc,CS.linear_solver);
-
-  i0 = 0;
-  i1 = i0+na;
-  for(i=i0;i<i1;++i){
-    CS.vIdc[i-i0] =  CS.xIdc[i];
-  }
-  i0 = na;
-  i1 = i0+nu;
-  for(i=i0;i<i1;++i){
-    CS.wIdc[i-i0] =  CS.xIdc[i];
-  }
-  QDDotOutput = CS.S.transpose()*CS.vIdc + CS.P.transpose()*CS.wIdc;
-
-  i0 = n;
-  i1 = i0+nc;
-  for(i=i0;i<i1;++i){
-    CS.force[i-i0] = -CS.xIdc[i];
-  }
-  i0 = n+nc;
-  i1 = i0+na;
-  for(i=i0; i<i1;++i){
-    CS.vIdc[i-i0] = -CS.xIdc[i];
-  }
-
-  TauOutput = CS.S.transpose()*CS.vIdc;
 
 }
+#endif
 
 RBDL_DLLAPI
 void InverseDynamicsConstraintsRelaxed(

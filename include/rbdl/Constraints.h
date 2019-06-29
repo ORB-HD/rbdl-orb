@@ -496,7 +496,10 @@ struct RBDL_DLLAPI ConstraintSet {
   Math::VectorNd v;
 
   Math::MatrixNd F;
+  Math::MatrixNd Ful,Fur,Fll,Flr; //blocks of f for SimpleMath
+
   Math::MatrixNd GT;
+  Math::MatrixNd GTu, GTl;//blocks of GT for SimpleMath
   Math::VectorNd g;
   Math::MatrixNd Ru;
   Math::VectorNd py;
@@ -527,13 +530,7 @@ struct RBDL_DLLAPI ConstraintSet {
   Math::VectorNd qddot_y;
   Math::VectorNd qddot_z;
 
-  Math::MatrixNd AIdc;
-  Math::VectorNd bIdc;
-  Math::VectorNd xIdc;
-  Math::VectorNd vIdc;
-  Math::VectorNd wIdc;
   // Variables used by the IABI methods
-
   /// Workspace for the Inverse Articulated-Body Inertia.
   Math::MatrixNd K;
   /// Workspace for the accelerations of due to the test forces
@@ -1246,13 +1243,10 @@ By projecting this onto the onto the \f$S\f$ and \f$P\f$ spaces
   \f[
      \text{rank}( GP^T ) = n - n_a.
   \f]
-
- \note The implementation is currently a prototype method, and as such, can
-       be greatly sped up. If you refer to Eqn. 5.20 in Koch's thesis the
-       current implementation is solving the \f$(n+n_c+n_a)\times(n+n_c+n_a)\f$
-       matrix directly. This block diagonal matrix can be solved in parts much
-       faster.
-
+  The implementation exploits the triangular structure of the matrix which
+  means that only two linear systems of size \f$(c \times u)\f$ and
+  \f$(u \times c)\f$ are performed which is much faster than solving the
+  \f$(2n \times 2n)\f$ KKT matrix directly.
 
 
  <b>References</b>
@@ -1279,7 +1273,7 @@ By projecting this onto the onto the \f$S\f$ and \f$P\f$ spaces
 
 
 */
-
+#ifndef RBDL_USE_SIMPLE_MATH
 RBDL_DLLAPI
 void InverseDynamicsConstraints(
     Model &model,
@@ -1290,8 +1284,8 @@ void InverseDynamicsConstraints(
     Math::VectorNd &QDDotOutput,
     Math::VectorNd &TauOutput,
     std::vector<Math::SpatialVector> *f_ext  = NULL);
+#endif
 
-#ifndef RBDL_USE_SIMPLE_MATH
 /**
   \brief A method to evaluate if the constrained system is fully actuated.
 
@@ -1313,6 +1307,7 @@ void InverseDynamicsConstraints(
  \param f_ext External forces acting on the body in base coordinates
         (optional, defaults to NULL)
 */
+#ifndef RBDL_USE_SIMPLE_MATH
 RBDL_DLLAPI 
 bool isConstrainedSystemFullyActuated(
     Model &model,
