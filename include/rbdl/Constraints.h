@@ -492,6 +492,8 @@ struct RBDL_DLLAPI ConstraintSet {
   /// accelerations
   Math::MatrixNd W;
   Math::MatrixNd Winv;
+  Math::VectorNd WinvSC;
+
   Math::VectorNd u;
   Math::VectorNd v;
 
