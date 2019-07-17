@@ -11,6 +11,7 @@
 #include <assert.h>
 
 #include "rbdl/rbdl_mathutils.h"
+#include "rbdl/rbdl_errors.h"
 #include "rbdl/Logging.h"
 
 #include "rbdl/Model.h"
@@ -121,8 +122,7 @@ unsigned int ConstraintSet::AddLoopConstraint (
   double baumgarte_coefficient = 0.0;
   if (enable_stabilization) {
     if (stabilization_param == 0.0) {
-      std::cerr << "Error: Baumgarte stabilization is enabled but the stabilization parameter is 0.0" << std::endl;
-      abort();
+      throw Errors::RBDLInvalidParameterError("Error: Baumgarte stabilization is enabled but the stabilization parameter is 0.0\n");
     }
     baumgarte_coefficient = 1.0 / stabilization_param;
   }
@@ -198,8 +198,7 @@ unsigned int ConstraintSet::AddCustomConstraint(
       double baumgarte_coefficient = 0.0;
       if (enable_stabilization) {
         if (stabilization_param == 0.0) {
-          std::cerr << "Error: Baumgarte stabilization is enabled but the stabilization parameter is 0.0" << std::endl;
-          abort();
+          throw Errors::RBDLInvalidParameterError("Error: Baumgarte stabilization is enabled but the stabilization parameter is 0.0\n");
         }
         baumgarte_coefficient = 1.0 / stabilization_param;
       }
@@ -242,8 +241,7 @@ bool ConstraintSet::Bind (const Model &model) {
   assert (bound == false);
 
   if (bound) {
-    std::cerr << "Error: binding an already bound constraint set!" << std::endl;
-    abort();
+    throw Errors::RBDLError("Error: binding an already bound constraint set!\n");
   }
   unsigned int n_constr = size();
 
@@ -891,19 +889,13 @@ bool CalcAssemblyQ (
   ) {
 
   if(Q.size() != model.q_size) {
-    std::cerr << "Incorrect Q vector size." << std::endl;
-    assert(false);
-    abort();
+    throw Errors::RBDLDofMismatchError("Incorrect Q vector size.\n");
   }
   if(QInit.size() != model.q_size) {
-    std::cerr << "Incorrect QInit vector size." << std::endl;
-    assert(false);
-    abort();
+    throw Errors::RBDLDofMismatchError("Incorrect QInit vector size.\n");
   }
   if(weights.size() != model.dof_count) {
-    std::cerr << "Incorrect weights vector size." << std::endl;
-    assert(false);
-    abort();
+    throw Errors::RBDLDofMismatchError("Incorrect weights vector size.\n");
   }
 
   // Initialize variables.
@@ -996,24 +988,16 @@ void CalcAssemblyQDot (
   const Math::VectorNd &weights
   ) {
   if(QDot.size() != model.dof_count) {
-    std::cerr << "Incorrect QDot vector size." << std::endl;
-    assert(false);
-    abort();
+    throw Errors::RBDLDofMismatchError("Incorrect QDot vector size.\n");
   }
   if(Q.size() != model.q_size) {
-    std::cerr << "Incorrect Q vector size." << std::endl;
-    assert(false);
-    abort();
+    throw Errors::RBDLDofMismatchError("Incorrect Q vector size.\n");
   }
   if(QDotInit.size() != QDot.size()) {
-    std::cerr << "Incorrect QDotInit vector size." << std::endl;
-    assert(false);
-    abort();
+    throw Errors::RBDLDofMismatchError("Incorrect QDotInit vector size.\n");
   }
   if(weights.size() != QDot.size()) {
-    std::cerr << "Incorrect weight vector size." << std::endl;
-    assert(false);
-    abort();
+    throw Errors::RBDLDofMismatchError("Incorrect weight vector size.\n");
   }
 
   // Initialize variables.
@@ -1563,10 +1547,7 @@ void ForwardDynamicsContactsKokkevis (
     }
     else
     {
-      std::cerr << "Forward Dynamic Contact Kokkevis: unsupported constraint \
-        type." << std::endl;
-      assert(false);
-      abort();
+      throw Errors::RBDLError("Forward Dynamic Contact Kokkevis: unsupported constraint type.\n");
     }   
   }
 
@@ -1641,10 +1622,7 @@ void ForwardDynamicsContactsKokkevis (
 
       default:
 
-        std::cerr << "Forward Dynamic Contact Kokkevis: unsupported constraint \
-          type." << std::endl;
-        assert(false);
-        abort();
+        throw Errors::RBDLError("Forward Dynamic Contact Kokkevis: unsupported constraint type.\n");
 
       break;
 
@@ -1814,9 +1792,7 @@ void SolveLinearSystem (
   LinearSolver ls
   ) {
   if(A.rows() != b.size() || A.cols() != x.size()) {
-    std::cerr << "Mismatching sizes." << std::endl;
-    assert(false);
-    abort();
+    throw Errors::RBDLSizeMismatchError("Mismatching sizes.\n");
   }
 
   // Solve the sistem A*x = b.
@@ -1836,9 +1812,9 @@ void SolveLinearSystem (
     x = A.householderQr().solve(b);
     break;
   default:
-    std::cerr << "Error: Invalid linear solver: " << ls << std::endl;
-    assert(false);
-    abort();
+    std::ostringstream errormsg;
+    errormsg << "Error: Invalid linear solver: " << ls << std::endl;
+    throw Errors::RBDLError(errormsg.str());
     break;
   }
 }
