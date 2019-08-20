@@ -262,11 +262,6 @@ bool ConstraintSet::Bind (const Model &model) {
   x.conservativeResize (model.dof_count + n_constr);
   x.setZero();
 
-  S.conservativeResize(model.dof_count, model.dof_count);
-  S.setZero();
-  W.conservativeResize(model.dof_count, model.dof_count);
-  W.Identity(model.dof_count, model.dof_count);
-
   Gi.conservativeResize (3, model.qdot_size);
   GSpi.conservativeResize (6, model.qdot_size);
   GSsi.conservativeResize (6, model.qdot_size);
@@ -337,6 +332,10 @@ void ConstraintSet::SetActuationMap(const Model &model,
   P.setZero();
   W.conservativeResize(na,na);
   W.setZero();
+  Winv.conservativeResize(na,na);
+  Winv.setZero();
+  WinvSC.conservativeResize(na);
+  WinvSC.setZero();
 
   u.resize(na);
   v.resize(nu);
@@ -346,7 +345,6 @@ void ConstraintSet::SetActuationMap(const Model &model,
   for(unsigned int i=0; i<model.dof_count;++i){
     if(actuatedDofUpd[i]){
       S(j,i) = 1.;
-      W(j,j) = 1.;
       ++j;
     }else{
       P(k,i) = 1.;
@@ -361,6 +359,15 @@ void ConstraintSet::SetActuationMap(const Model &model,
   F.conservativeResize(dim,dim);
   F.setZero();
 
+  Ful.conservativeResize(na,na);
+  Ful.setZero();
+  Fur.conservativeResize(na,nu);
+  Fur.setZero();
+  Fll.conservativeResize(nu,na);
+  Fll.setZero();
+  Flr.conservativeResize(nu,nu);
+  Flr.setZero();
+
   g.conservativeResize(n);
 
   Ru.conservativeResize(nc,nc);
@@ -368,8 +375,10 @@ void ConstraintSet::SetActuationMap(const Model &model,
   pz.conservativeResize(n-nc);
 
   GT.conservativeResize(n,nc);
+  GTu.conservativeResize(na,nc);
+  GTl.conservativeResize(nu,nc);
 
-
+  GPT.conservativeResize(nc,nu);
 
 }
 
@@ -1700,6 +1709,46 @@ void ForwardDynamicsContactsKokkevis (
 }
 
 
+#ifndef RBDL_USE_SIMPLE_MATH
+RBDL_DLLAPI
+bool isConstrainedSystemFullyActuated(
+    Model &model,
+    const Math::VectorNd &Q,
+    const Math::VectorNd &QDot,
+    ConstraintSet &CS,
+    std::vector<Math::SpatialVector> *f_ext)
+{
+
+  LOG << "-------- " << __func__ << " ------" << std::endl;
+
+
+  assert (CS.S.cols()    == QDot.rows());
+
+  unsigned int n  = unsigned(    CS.H.rows());
+  unsigned int nc = unsigned( CS.name.size());
+  unsigned int na = unsigned(    CS.S.rows());
+  unsigned int nu = n-na;
+
+
+  CalcConstrainedSystemVariables(model,Q,QDot,VectorNd::Zero(QDot.rows()),CS,f_ext);
+
+  CS.GPT = CS.G*CS.P.transpose();
+
+  CS.GPT_full_qr.compute(CS.GPT);
+  unsigned int r = unsigned(CS.GPT_full_qr.rank());
+
+  bool isCompatible = false;
+  if(r == (n-na)){
+    isCompatible = true;
+  }else{
+    isCompatible = false;
+  }
+
+  return isCompatible;
+
+}
+#endif
+#ifndef RBDL_USE_SIMPLE_MATH
 RBDL_DLLAPI
 void InverseDynamicsConstraints(
     Model &model,
@@ -1711,36 +1760,139 @@ void InverseDynamicsConstraints(
     Math::VectorNd &TauOutput,
     std::vector<Math::SpatialVector> *f_ext)
 {
+
+  LOG << "-------- " << __func__ << " ------" << std::endl;
+
+  assert (QDot.size()         == QDDotDesired.size());
+  assert (QDDotDesired.size() == QDot.size());
+  assert (QDDotOutput.size()  == QDot.size());
+  assert (TauOutput.size()    == CS.H.rows());
+
+  assert (CS.S.cols()     == QDDotDesired.rows());
+  
+  unsigned int n  = unsigned(    CS.H.rows());
+  unsigned int nc = unsigned( CS.name.size());
+  unsigned int na = unsigned(    CS.S.rows());
+  unsigned int nu = n-na;
+
+  TauOutput.setZero();
+  CalcConstrainedSystemVariables(model,Q,QDot,TauOutput,CS,f_ext);
+
+  // This implementation follows the projected KKT system described in
+  // Eqn. 5.20 of Henning Koch's thesis work. Note that this will fail
+  // for under actuated systems
+  //  [ SMS'      SMP'    SJ'    I][      u]   [ -SC    ]
+  //  [ PMS'      PMP'    PJ'     ][      v] = [ -PC    ]
+  //  [ JS'        JP'     0      ][-lambda]   [ -gamma ]
+  //  [ I                         ][   -tau]   [  v*     ]
+  //double alpha = 0.1;
+  
+  CS.Ful = CS.S*CS.H*CS.S.transpose();
+  CS.Fur = CS.S*CS.H*CS.P.transpose();
+  CS.Fll = CS.P*CS.H*CS.S.transpose();
+  CS.Flr = CS.P*CS.H*CS.P.transpose();
+
+  CS.GTu = CS.S*(CS.G.transpose());
+  CS.GTl = CS.P*(CS.G.transpose());
+
+  //Exploiting the block triangular structure
+  //u:
+  //I u = S*qdd*
+  CS.u = CS.S*QDDotDesired;
+  // v
+  //(JP')v = -gamma - (JS')u
+  //Using GT
+
+  //This fails using SimpleMath and I'm not sure how to fix it
+  SolveLinearSystem( CS.GTl.transpose(),
+                     CS.gamma - CS.GTu.transpose()*CS.u,
+                     CS.v, CS.linear_solver);
+
+  // lambda
+  SolveLinearSystem(CS.GTl,
+                    -CS.P*CS.C
+                    - CS.Fll*CS.u
+                    - CS.Flr*CS.v,
+                    CS.force,
+                    CS.linear_solver);
+
+  for(unsigned int i=0; i<CS.force.rows();++i){
+    CS.force[i] *= -1.0;
+  }
+
+  //Evaluating qdd
+  QDDotOutput = CS.S.transpose()*CS.u + CS.P.transpose()*CS.v;
+
+  //Evaluating tau
+  TauOutput = -CS.S.transpose()*( -CS.S*CS.C
+                               -( CS.Ful*CS.u
+                                 +CS.Fur*CS.v
+                                 -CS.GTu*CS.force));
+
+
+
+
+}
+#endif
+
+RBDL_DLLAPI
+void InverseDynamicsConstraintsRelaxed(
+    Model &model,
+    const Math::VectorNd &Q,
+    const Math::VectorNd &QDot,
+    const Math::VectorNd &QDDotControls,
+    ConstraintSet &CS,
+    Math::VectorNd &QDDotOutput,
+    Math::VectorNd &TauOutput,
+    std::vector<Math::SpatialVector> *f_ext)
+{
   LOG << "-------- " << __func__ << " --------" << std::endl;
 
   //Check that the input vectors and matricies are sized appropriately
   assert(Q.size()               == model.q_size);
   assert(QDot.size()            == model.qdot_size);
-  assert(QDDotDesired.size()    == model.dof_count);
+  assert(QDDotControls.size()    == model.dof_count);
   assert(CS.S.cols()            == model.dof_count);
   assert(CS.W.rows()            == CS.W.cols());
   assert(CS.W.rows()            == CS.S.rows());
   assert(QDDotOutput.size()     == model.dof_count);
 
-  CalcConstrainedSystemVariables (model, Q, QDot, TauOutput, CS,f_ext);
+  TauOutput.setZero();
+  CalcConstrainedSystemVariables(model,Q,QDot,TauOutput,CS,f_ext);
 
-  //To ensure that F & Z'FZ are positive definite
-  CS.W = 0.1*(CS.S*CS.H*CS.S.transpose());
+  unsigned int n  = unsigned(    CS.H.rows());
+  unsigned int nc = unsigned( CS.name.size());
+  unsigned int na = unsigned(    CS.S.rows());
+  unsigned int nu = n-na;
 
-  //In the draft of the IDC paper there is a sign error on the K term
-  //in Eqn. 25 (orthogonal matrix lhs), Eqn. 28 (matrix F)
-  CS.F.block( 0, 0, CS.S.rows(),CS.S.rows()) = CS.S*CS.H*CS.S.transpose()-CS.W;
-  CS.F.block(          0, CS.S.rows(), CS.S.rows(), CS.P.rows()) 
-    = CS.S*CS.H*CS.P.transpose();
-  CS.F.block(CS.S.rows(),           0, CS.P.rows(), CS.S.rows()) 
-    = CS.P*CS.H*CS.S.transpose();
-  CS.F.block(CS.S.rows(), CS.S.rows(), CS.P.rows(), CS.P.rows()) 
-    = CS.P*CS.H*CS.P.transpose();
 
-  //Making use of the matricies already set up for the QR decomposition of G'
-  CS.GT.block(          0, 0,CS.S.rows(),CS.G.rows()) = CS.S*CS.G.transpose();
-  CS.GT.block(CS.S.rows(), 0,CS.P.rows(),CS.G.rows()) = CS.P*CS.G.transpose();
+  //MM: Update to Henning's formulation s.t. the relaxed IDC operator will
+  //    more closely satisfy QDDotControls if it is possible.
+  double diag = 0.;//100.*CS.H.maxCoeff();
+  double diagInv = 0.;
+  for(unsigned int i=0; i<CS.H.rows();++i){
+    for(unsigned int j=0; j<CS.H.cols();++j){
+      if(fabs(CS.H(i,j)) > diag){
+        diag = fabs(CS.H(i,j));
+      }
+    }
+  }
+  diag = diag*100.;
+  diagInv = 1.0/diag;
+  for(unsigned int i=0;i<CS.W.rows();++i){
+    CS.W(i,i)    = diag;
+    CS.Winv(i,i) = diagInv;
+  }
 
+  CS.WinvSC = CS.Winv * CS.S * CS.C;
+
+  CS.F.block(  0,  0, na, na) = CS.S*CS.H*CS.S.transpose() + CS.W;
+  CS.F.block(  0, na, na, nu) = CS.S*CS.H*CS.P.transpose();
+  CS.F.block( na,  0, nu, na) = CS.P*CS.H*CS.S.transpose();
+  CS.F.block( na, na, nu, nu) = CS.P*CS.H*CS.P.transpose();
+
+  CS.GT.block(  0, 0,na, nc) = CS.S*(CS.G.transpose());
+  CS.GT.block( na, 0,nu, nc) = CS.P*(CS.G.transpose());
 
   CS.GT_qr.compute (CS.GT);
 #ifdef RBDL_USE_SIMPLE_MATH
@@ -1749,18 +1901,31 @@ void InverseDynamicsConstraints(
     CS.GT_qr.householderQ().evalTo (CS.GT_qr_Q);
 #endif
 
+  //GT = [Y  Z] * [ R ]
+  //              [ 0 ]
+
   CS.R  = CS.GT_qr_Q.transpose()*CS.GT;
-  CS.Ru = CS.R.block(0,0,CS.G.rows(),CS.G.rows());
+  CS.Ru = CS.R.block(0,0,nc,nc);
 
-  CS.Y = CS.GT_qr_Q.block (              0,           0, 
-                           model.dof_count, CS.G.rows() );
-  CS.Z = CS.GT_qr_Q.block ( 0,                  CS.G.rows(), 
-              model.dof_count,(model.dof_count-CS.G.rows()));
+  CS.Y = CS.GT_qr_Q.block( 0, 0,  n, nc    );
+  CS.Z = CS.GT_qr_Q.block( 0, nc, n, (n-nc));
 
-  //In the draft paper the equation for the rhs of Eqn 25 has a sign error
-  //on Kv* as does Eqn. 29 for g.
-  CS.u = CS.S*CS.C + CS.W*CS.S*QDDotDesired;
-  CS.v = CS.P*CS.C;
+  //MM: Update to Henning's formulation s.t. the relaxed IDC operator will
+  //    exactly satisfy QDDotControls if it is possible.
+  //
+  //Modify QDDotControls so that SN is cancelled.
+  //
+  //    +SC - WS(qdd*)
+  //
+  // Add a term to cancel off SN
+  //
+  //    +SC - WS( qdd* + (S' W^-1 S)N )
+  //
+
+  CS.u = CS.S*CS.C - CS.W*(CS.S*(QDDotControls
+                                 +(CS.S.transpose()*CS.WinvSC)));
+
+  CS.v =  CS.P*CS.C;
 
   for(unsigned int i=0; i<CS.S.rows();++i){
     CS.g[i] = CS.u[i];
@@ -1801,9 +1966,11 @@ void InverseDynamicsConstraints(
   QDDotOutput = CS.S.transpose()*CS.u
                +CS.P.transpose()*CS.v;
 
-  //Eqn. 32e the equation for tau in the manuscript has a sign error on
-  //the right hand side.
-  TauOutput = (CS.S.transpose()*CS.W*CS.S)*(QDDotOutput-QDDotDesired);
+  TauOutput = (CS.S.transpose()*CS.W*CS.S)*(
+                QDDotControls+(CS.S.transpose()*CS.WinvSC)
+                -QDDotOutput);
+
+
 
 }
 

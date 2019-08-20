@@ -397,13 +397,16 @@ struct RBDL_DLLAPI ConstraintSet {
 
   /**
     \brief Initializes and allocates memory needed for 
-            InverseDynamicsConstraints
+            InverseDynamicsConstraints and InverseDynamicsConstraintsRelaxed
 
     This function allocates the temporary vectors and matrices needed
-    for the InverseDynamicsConstraints method. In addition, the constant
-    matrices S and P are set here. This function needs to be called once
-    before calling InverseDynamicsConstraints. It does not ever need be called
-    again, unless the actuated degrees of freedom change.
+    for the RigidBodyDynamics::InverseDynamicsConstraints and RigidBodyDynamics::InverseDynamicsConstraintsRelaxed
+    methods. In addition, the constant matrices S and P are set here. 
+    This function needs to be called once
+    before calling either RigidBodyDynamics::InverseDynamicsConstraints or
+    RigidBodyDynamics::InverseDynamicsConstraintsRelaxed. It does not ever need be called
+    again, unless the actuated degrees of freedom change, or the constraint
+    set changes.
 
     \param model rigid body model   
     \param actuatedDof : a vector that is q_size in length (or dof_count in 
@@ -488,12 +491,17 @@ struct RBDL_DLLAPI ConstraintSet {
   /// Matrix that holds the relative cost of deviating from the desired
   /// accelerations
   Math::MatrixNd W;
+  Math::MatrixNd Winv;
+  Math::VectorNd WinvSC;
 
   Math::VectorNd u;
   Math::VectorNd v;
 
   Math::MatrixNd F;
+  Math::MatrixNd Ful,Fur,Fll,Flr; //blocks of f for SimpleMath
+
   Math::MatrixNd GT;
+  Math::MatrixNd GTu, GTl;//blocks of GT for SimpleMath
   Math::VectorNd g;
   Math::MatrixNd Ru;
   Math::VectorNd py;
@@ -513,9 +521,11 @@ struct RBDL_DLLAPI ConstraintSet {
   SimpleMath::HouseholderQR<Math::MatrixNd> GT_qr;
 #else
   Eigen::HouseholderQR<Math::MatrixNd> GT_qr;
+  Eigen::FullPivHouseholderQR<Math::MatrixNd> GPT_full_qr;
 #endif
 
   Math::MatrixNd GT_qr_Q;
+  Math::MatrixNd GPT;
   Math::MatrixNd Y;
   Math::MatrixNd Z;
   Math::MatrixNd R;  
@@ -523,7 +533,6 @@ struct RBDL_DLLAPI ConstraintSet {
   Math::VectorNd qddot_z;
 
   // Variables used by the IABI methods
-
   /// Workspace for the Inverse Articulated-Body Inertia.
   Math::MatrixNd K;
   /// Workspace for the accelerations of due to the test forces
@@ -664,7 +673,7 @@ void CalcConstrainedSystemVariables (
   * this number of iterations.
   * 
   * \return true if the generalized joint positions were computed successfully,
-  * false otherwise.
+  * false otherwise.f
   *
   */
 RBDL_DLLAPI
@@ -861,120 +870,111 @@ void ForwardDynamicsContactsKokkevis (
 
 
 /**
- @brief An inverse-dynamics operator that can work with models with 
-        kinematic constraints and a user-defined set of actuated 
-        degrees-of-freedom (chosen by calling SetActuationMap)
+ @brief A relaxed inverse-dynamics operator that can be applied to
+        under-actuated or fully-actuated constrained multibody systems.
+  \par
+  <b>Important</b>
+  Set the actuated degrees-of-freedom using RigidBodyDynamics::ConstraintSet::SetActuationMap
+  <b>prior</b> to calling this function.
+  \par
+  This function implements the relaxed inverse-dynamics operator defined by
+  Koch [1] and Kudruss [2]. When given a vector of
+  generalized positions, generalized velocities, and desired generalized
+  accelerations will solve for a set of generalized accelerations and forces
+  which satisfy the constrained equations of motion such that the solution 
+  is close to a vector of desired acceleration controls \f$x\f$ 
+  \f[
+   \min{\ddot{q}} \dfrac{1}{2} \ddot{q}^T H \ddot{q} + C^T \ddot{q} + \dfrac{1}{2}(Sx-S\ddot{q})^{T} W (Sx-S\ddot{q})
+  \f]
+  s.t.
+  \f[
+   G \ddot{q} = \gamma.
+  \f]
+  In contrast to the
+  RigidBodyDynamics::InverseDynamicsConstraints method, this method can work
+  with underactuated systems. Mathematically this method does not depend on
+  \f[
+    \text{rank}(GP^T) < n-n_a
+  \f]
+  where \f$n\f$ is the number of degrees of freedom and \f$n_a\f$ is the
+  number of actuated degrees of freedom. 
+  \par
+  For those readers who are unfamiliar with quadratic programs (QP), like the 
+  constrained minimization problem above, read the following important notes.
+  One consequence of this additional flexibility is that the term \f$x\f$ should 
+  now be interpreted as a control vector: 
 
- \par
- This function implements an inverse-dynamics operator defined by Koch [1] and
- Kudruss [2] which when given a vector of
- generalized positions, generalized velocities, and desired generalized
- accelerations will solve for a set of generalized accelerations and forces
- which satisfy the constrained equations of motion
- \f[ \left( \begin{array}{cc}
-      H & G^T \\
+  -# The minimum of the above constrained QP may not be \f$x = S\ddot{q}^*\f$ 
+  where \f$\ddot{q}^*\f$ is the vector of desired accelerations. The terms 
+  \f$\dfrac{1}{2} \ddot{q}^T H \ddot{q}\f$ will \f$C^T \ddot{q}\f$ pull
+  the solution away from this value and the constraint \f$G \ddot{q} = \gamma\f$
+  may make it impossible to exactly satisfy \f$S\ddot{q}*=S\ddot{q}\f$.   
+  -# Koch's original formulation has been modifed so that setting 
+  \f$x = \ddot{q}^*\f$ will yield a solution for \f$\ddot{q}\f$ that is close 
+  to \f$\ddot{q}^*\f$. However, even if an exact solution for 
+  \f$\ddot{q} = \ddot{q}^*\f$ exists it will may not be realized using
+  \f$x = \ddot{q}*\f$. Iteration may be required.
+
+  To solve the above constrained minimization problem we take the derivative
+  of the above system of equations w.r.t. \f$\ddot{q}\f$ and \f$\lambda\f$
+  set the result to zero and solve. This results in the KKT system
+ \f[ 
+    \left( \begin{array}{cc}
+      H+K & G^T \\
       G & 0
-    \end{array} \right) 
+    \end{array} \right)
     \left( \begin{array}{c}
     \ddot{q} \\
     -\lambda
     \end{array} \right)
     =\left(
     \begin{array}{c}
-       \tau - C\\
+       (S^T W S)x - C\\
        \gamma
     \end{array}
-    \right)
-\f] 
-such that the accelerations of the actuated degrees of freedom, 
-\f$\ddot{q}^a\f$, match the acuated subspace of \f$\ddot{q}\f$
-\f[
-  S \ddot{q} = S \ddot{q}^a
-\f]
-where \f$S\f$ is a selection matrix that returns the actuated indices of 
-\f$\ddot{q}\f$. Finally, we would like that the distance between the desired 
-accelerations, \f$\ddot{q}^*\f$, and the actuated accelerations is minimized
-\f[
- \min_{\ddot{q},\ddot{q}^*} (S\ddot{q}^*-S\ddot{q}^a)^T W (S\ddot{q}^*-S\ddot{q}^a).
-\f]
- This system can be solved by forming the KKT system
- \f[ \left(
-   \begin{array}{cc|cc}
-    H &   0         & G^T & S^T \\
-    0 &  S^T W S    &   0 & S^T \\
-    \hline 
-    G &  0          &   0 &  0  \\
-    S &  S          &   0 &  0  \\
-   \end{array}
- \right)
- \left(
-   \begin{array}{c}
-    \ddot{q}\\
-    \ddot{q}^a\\
-    -\lambda\\
-    -\tau
-   \end{array}
- \right)
- =
- \left(
-   \begin{array}{c}
-    -C\\
-     S^T W S \ddot{q}^*\\
-    \gamma\\
-    0
-   \end{array}
- \right) \f]
- and solving for the \f$\ddot{q}\f$, \f$\ddot{q}^a\f$, \f$\lambda\f$ the
- Lagrange multipliers of the constraints, and \f$\tau^a\f$ the vector of
- actuated generalized forces. This function directly solves the above system
- where the large matrix has the dimensions of \f$(3n+c)\times(3n+c)\f$,
- where \f$n\f$ is the number of degrees-of-freedom of the model and \f$c\f$ is
- the number of constraints. While the mathematics of direct method (the above 
- KKT system) are most intuitive to understand this results in a large set 
- of equations.
-
- \par
- This implementation does not directly solve the above system of equations but 
- instead uses a projection into the null space of \f$ G \f$ to solve a much
- smaller set of equations. This solution method exploits an orthogonal
-  decomposition of 
+    \right).
+  \f]
+  This system of linear equations is not solved directly, but instead
+  the null-space formulation presented in Sec. 2.5 of
+  Koch as it is much faster. 
+  As with the RigidBodyDynamics::InverseDynamicsConstraints method the
+  matrices \f$S\f$ and \f$P\f$ select the actuated and unactuated parts of
   \f[\ddot{q} = S^T u + P^T v
   \f], 
   and
-  \f[u^* = S^T \ddot{q}^*
+  \f[u^* = S^T x
   \f],
   where \f$ S \f$ is a selection matrix that returns the actuated subspace of
-  \f$ \ddot{q} \f$ (\f$ S\ddot{q} \f$) and \f$ P \f$ returns the unactuated subspace
-  of \f$ \ddot{q} \f$ (\f$ P\ddot{q} \f$). This reduces the \f$ (3n+c)\times(3n+c) \f$
-  KKT system to a smaller \f$ (n+c)\times(n+c) \f$ system
- \f[
- \left(
-   \begin{array}{ccc}
-    S H S^T+W & S M P^T & S G^T \\
-    P M S^T & P M P^T & P G^T \\
-    G^T S^T & G^T P^T & 0     
-   \end{array}
- \right)
- \left(
-   \begin{array}{c}
-    u \\
-    v \\
-    -\lambda
-   \end{array}
- \right)
- =
- \left(
-   \begin{array}{c}
-    -Wu^* -SC\\
-     -PC\\
-    \gamma
-   \end{array}
- \right)
- \f]
-  This system has an upper block triangular structure which can be seen by 
+  \f$ \ddot{q} \f$ (\f$ S\ddot{q} \f$) and \f$ P \f$ returns the unactuated
+  subspace of \f$ \ddot{q} \f$ (\f$ P\ddot{q} \f$).
+  \f[
+   \left(
+     \begin{array}{ccc}
+      S H S^T+W & S M P^T & S G^T \\
+      P M S^T & P M P^T & P G^T \\
+      G S^T & G P^T & 0
+     \end{array}
+   \right)
+   \left(
+     \begin{array}{c}
+      u \\
+      v \\
+      -\lambda
+     \end{array}
+   \right)
+   =
+   \left(
+     \begin{array}{c}
+       Wu^* -SC\\
+       -PC\\
+      \gamma
+     \end{array}
+   \right)
+  \f]
+  This system has an upper block triangular structure which can be seen by
   noting that
   \f[ 
-    G^T = \left( \begin{array}{c} S G^T \\ P G^T \end{array} \right),
+    J^T = \left( \begin{array}{c} S G^T \\ P G^T \end{array} \right),
   \f]
   by grouping the upper \f$2 \times 2\f$ block into
   \f[
@@ -984,13 +984,13 @@ accelerations, \f$\ddot{q}^*\f$, and the actuated accelerations is minimized
   \f]
   and by grouping the right hand side into
   \f[
-    g = \left( \begin{array}{c} Wu^* + SC \\ PC \end{array} \right)
+    g = \left( \begin{array}{c} -Wu^* + SC \\ PC \end{array} \right)
   \f]
   resulting in
   \f[
     \left( \begin{array}{cc}
-            F & G^T \\
-            G & 0 
+            F & J^T \\
+            J & 0
             \end{array}
     \right)
     \left( \begin{array}{c}
@@ -1008,7 +1008,7 @@ accelerations, \f$\ddot{q}^*\f$, and the actuated accelerations is minimized
   This system can be triangularized by projecting the system into the null
   space of \f$G^T\f$. First we begin with a QR decomposition of \f$G^T\f$ into
   \f[ 
-    G^T = \left( Y \, Z \right)\left( \begin{array}{c} R \\ 0 \end{array} \right)
+    J^T = \left( Y \, Z \right)\left( \begin{array}{c} R \\ 0 \end{array} \right)
   \f]
   and projecting \f$(u,v)\f$ into the space \f$[Y,Z]\f$ 
   \f[
@@ -1039,7 +1039,7 @@ accelerations, \f$\ddot{q}^*\f$, and the actuated accelerations is minimized
   Though this system is still \f$(n+c) \times (n+c)\f$ it can be solved in parts
   for \f$p_Y\f$
   \f[
-    R^T p_Y = - Y^T g,
+    R^T p_Y = \gamma,
   \f]
   and \f$p_Z\f$
   \f[
@@ -1056,9 +1056,9 @@ accelerations, \f$\ddot{q}^*\f$, and the actuated accelerations is minimized
   \f[
     \ddot{q} = S^T u + P^T v.
   \f]
-  This method is less computationally expensive than the direct method since  
+  This method is less computationally expensive than the KKT system directly since  
   \f$R\f$ is of size \f$ c \times c \f$ and \f$ (Z^T F Z)\f$ is of size
-  \f$ (n-c) \times (n-c) \f$ which is far smaller than the \f$ (3n+c) \times (3n+c) \f$ 
+  \f$ (n-c) \times (n-c) \f$ which is far smaller than the \f$ (n+c) \times (n+c) \f$ 
   matrix used in the direct method. As it is relatively inexpensive, the
   dual variables are also evaluated
   \f[
@@ -1066,30 +1066,38 @@ accelerations, \f$\ddot{q}^*\f$, and the actuated accelerations is minimized
   \f]
   and
   \f[
-    \tau = S^T W S (\ddot{q}-\ddot{q}^*)
+    \tau = S^T W S (x-\ddot{q})
   \f]
 
+
+ \note Two modifications have been made to this implementation to bring the
+       solution to \f$S \ddot{q}\f$ much closer to \f$S x\f$
+       -# The vector \f$u^*\f$ has been modifed to \f$u^* = Sx + (S^T W^{-1} S)C\f$ so that the term \f$SC\f$ in the upper right hand side is compensated
+       -# The weighting matrix \f$W\f$ has a main diagional that is scaled to be uniformly 100 times larger than the biggest element in M. This will drive the solution closer to \f$S x\f$ without hurting the scaling of the matrix too badly.
 
  \note The Lagrange multipliers are solved for and stored in the `force' field
        of the ConstraintSet structure.
 
  \note The sign of \f$\gamma\f$ in this documentation is consistent with RBDL
- and it is equal to \f$-1\f$ times the right hand side of the constraint 
- expressed at the acceleration-level. It is more common to see \f$-\gamma\f$, 
- in the literature and define \f$\gamma\f$ as the positive right-hand side of 
+ and it is equal to \f$-1\f$ times the right hand side of the constraint
+ expressed at the acceleration-level. It is more common to see \f$-\gamma\f$,
+ in the literature and define \f$\gamma\f$ as the positive right-hand side of
  the acceleration equation.
 
- \note The function SetActuationMap must be called prior to using this function.
 
  <b>References</b>
-  -# Koch KH (2015). Using model-based optimal control for conceptional motion generation for the humannoid robot hrp-2 14 and design investigations for exo-skeletons. Heidelberg University (Doctoral dissertation).
+  -# Koch KH (2015). Using model-based optimal control for conceptional motion generation for the humannoid robot hrp-2 and design investigations for exo-skeletons. Heidelberg University (Doctoral dissertation).
   -# Kudruss M (under review as of May 2019). Nonlinear model-predictive control for the motion generation of humanoids. Heidelberg University  (Doctoral dissertation)
 
  \param model: rigid body model
  \param Q:     N-element vector of generalized positions
  \param QDot:  N-element vector of generalized velocities
- \param QDDotDesired:  N-element vector of desired generalized accelerations
-                       (\f$\ddot{q}^*\f$ in the above equation)
+
+ \param QDDotControls:
+      N-element vector of generalized acceleration controls
+     (\f$x\f$ in the above equation). If the idea of a control vector is
+     unclear please read the above text for additional details.
+
  \param CS: Structure that contains information about the set of kinematic
             constraints. Note that the 'force' vector is appropriately updated
             after this function is called so that it contains the Lagrange
@@ -1105,6 +1113,170 @@ accelerations, \f$\ddot{q}^*\f$, and the actuated accelerations is minimized
 
  */
 RBDL_DLLAPI
+void InverseDynamicsConstraintsRelaxed(
+    Model &model,
+    const Math::VectorNd &Q,
+    const Math::VectorNd &QDot,
+    const Math::VectorNd &QDDotControls,
+    ConstraintSet &CS,
+    Math::VectorNd &QDDotOutput,
+    Math::VectorNd &TauOutput,
+    std::vector<Math::SpatialVector> *f_ext  = NULL);
+
+/**
+ @brief An inverse-dynamics operator that can be applied to fully-actuated
+        constrained systems.
+  \par
+  <b>Important</b>
+  -# Set the actuated degrees-of-freedom using RigidBodyDynamics::ConstraintSet::SetActuationMap
+  <b>prior</b> to calling this function.
+  -# Use the function RigidBodyDynamics::isConstrainedSystemFullyActuated to
+     determine if a system is fully actuated or not.
+ \par
+ This function implements an inverse-dynamics operator defined by Koch (1)
+ (described in Eqn. 5.20) that can be applied to fully-actuated constraint
+ systems and will solve for a set of physically-consistent
+ \f$\ddot{q}\f$ and \f$\ddot{tau}\f$ given a desired \f$\ddot{q}^*\f$.
+ \par
+ To see test if a constrained system is fully actuated please use the function
+ RigidBodyDynamics::isConstrainedSystemFullyActuated. If the constrained system
+ is not fully actuated then the method
+ RigidBodyDynamics::InverseDynamicsConstraintsRelaxed must be used instead.
+ \par
+ For a detailed explanation of the systems which cause this method to fail
+ please read the text following Eqn. 5.20 in Koch's thesis, and the example that
+ is given in Sec. 3 on pg 66. A brief summary is presented below.
+ \par
+ To begin,the generalized accelerations are partitioned into actuated
+ parts \f$u\f$ and unactuated parts \f$v\f$
+  \f[
+  u = S \ddot{q}
+  \f]
+  where \f$S\f$ is an  \f$n_a\f$ (number of actuated degrees-of-freedom) by
+  \f$n\f$ (number of degrees of freedom of the unconstrained system) selection
+  matrix that picks out the actuated indices in \f$\ddot{q}\f$ and
+  \f[
+  v = P \ddot{q}
+  \f]
+  where \f$P\f$ is an  \f$n_u=n-n_a\f$ (number of unactuated degrees-of-freedom)
+  by  \f$n\f$ selection matrix that picks out the unactuated indices in \ddot{q}.
+  By construction
+  \f[
+    \left(\begin{array}{cc}
+      PP^T & 0 \\
+      0 & SS^T
+    \end{array}\right) = I_{n}
+  \f]
+  and thus
+  \f[
+    \ddot{q} = S u + P v
+  \f]
+  We begin by projecting the constrained equations of motion
+ \f[ \left( \begin{array}{cc}
+      H & G^T \\
+      G & 0
+    \end{array} \right)
+    \left( \begin{array}{c}
+    \ddot{q} \\
+    -\lambda
+    \end{array} \right)
+    =\left(
+    \begin{array}{c}
+       \tau - C\\
+       \gamma
+    \end{array}
+    \right)
+\f]
+and adding the constraint that
+\f[
+ u - S \ddot{q}^* = 0
+\f]
+where \f$\ddot{q}^*\f$ is a vector of desired accelerations. By considering
+only forces that are applied to the actuated parts (that is \f$S \tau\f$)
+we can rearrange the system of equations
+ \f[ \left( \begin{array}{ccc}
+      H & G^T  & S^T\\
+      G & 0 & 0 \\
+      S & 0 & 0 \\
+    \end{array} \right)
+    \left( \begin{array}{c}
+    \ddot{q} \\
+    -\lambda \\
+    -\tau
+    \end{array} \right)
+    =\left(
+    \begin{array}{c}
+       - C\\
+       \gamma \\
+       S\ddot{q}^*
+    \end{array}
+    \right)
+\f]
+By projecting this onto the onto the \f$S\f$ and \f$P\f$ spaces
+ \f[
+ \left(
+   \begin{array}{cccc}
+    S H S^T & S M P^T & S G^T & I \\
+    P M S^T & P M P^T & P G^T & 0\\
+    G S^T & G P^T & 0 & 0 \\
+    I & 0 & 0 & 0 \\
+   \end{array}
+ \right)
+ \left(
+   \begin{array}{c}
+    u \\
+    v \\
+    -\lambda\\
+    -\tau
+   \end{array}
+ \right)
+ =
+ \left(
+   \begin{array}{c}
+     -SC\\
+     -PC\\
+    \gamma\\
+    S \ddot{q}^*
+   \end{array}
+ \right)
+ \f]
+ it becomes clear that this system of equations will be singular if \f$GP^T\f$
+ loses rank. Thus this method is appropriate to use provided that
+  \f[
+     \text{rank}( GP^T ) = n - n_a.
+  \f]
+  The implementation exploits the triangular structure of the matrix which
+  means that only two linear systems of size \f$(c \times u)\f$ and
+  \f$(u \times c)\f$ are performed which is much faster than solving the
+  \f$(2n \times 2n)\f$ KKT matrix directly.
+
+
+ <b>References</b>
+  -# Koch KH (2015). Using model-based optimal control for conceptional motion generation for the humannoid robot hrp-2 and design investigations for exo-skeletons. Heidelberg University (Doctoral dissertation).
+
+
+ \param model: rigid body model
+ \param Q:     N-element vector of generalized positions
+ \param QDot:  N-element vector of generalized velocities
+ \param QDDotDesired:  N-element vector of desired generalized accelerations
+                       (\f$\ddot{q}^*\f$ in the above equation)
+ \param CS: Structure that contains information about the set of kinematic
+            constraints. Note that the 'force' vector is appropriately updated
+            after this function is called so that it contains the Lagrange
+            multipliers.
+
+ \param QDDotOutput:  N-element vector of generalized accelerations which
+                      satisfy the kinematic constraints (\f$\ddot{q}\f$ in the
+                      above equation)
+ \param TauOutput: N-element vector of generalized forces which satisfy the
+                   the equations of motion for this constrained system.
+ \param f_ext External forces acting on the body in base coordinates
+        (optional, defaults to NULL)
+
+
+*/
+#ifndef RBDL_USE_SIMPLE_MATH
+RBDL_DLLAPI
 void InverseDynamicsConstraints(
     Model &model,
     const Math::VectorNd &Q,
@@ -1114,6 +1286,38 @@ void InverseDynamicsConstraints(
     Math::VectorNd &QDDotOutput,
     Math::VectorNd &TauOutput,
     std::vector<Math::SpatialVector> *f_ext  = NULL);
+#endif
+
+/**
+  \brief A method to evaluate if the constrained system is fully actuated.
+
+  \par 
+   This method will evaluate the rank of \f$(GP^T)\f$
+   in order to assess if the constrained system is fully
+   actuated or is under actuated. If the system is fully actuated the
+   exact method RigidBodyDynamics::InverseDynamicsConstraints can be used, otherwise only
+   relaxed method RigidBodyDynamics::InverseDynamicsConstraintsRelaxed can be used.
+
+  \note This method uses a relatively slow but accurate method to
+        evaluate the rank.
+
+ \param model: rigid body model
+ \param Q:     N-element vector of generalized positions
+ \param QDot:  N-element vector of generalized velocities
+ \param CS: Structure that contains information about the set of kinematic
+            constraints.
+ \param f_ext External forces acting on the body in base coordinates
+        (optional, defaults to NULL)
+*/
+#ifndef RBDL_USE_SIMPLE_MATH
+RBDL_DLLAPI 
+bool isConstrainedSystemFullyActuated(
+    Model &model,
+    const Math::VectorNd &Q,
+    const Math::VectorNd &QDot,
+    ConstraintSet &CS,
+    std::vector<Math::SpatialVector> *f_ext  = NULL);
+#endif
 
 /** \brief Computes contact gain by constructing and solving the full lagrangian 
  *  equation
