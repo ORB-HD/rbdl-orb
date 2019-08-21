@@ -14,6 +14,7 @@
   //memory necessary for this constraint. So nothing appears here.
 
 #include "rbdl/rbdl_mathutils.h"
+#include "rbdl/rbdl_errors.h"
 #include "rbdl/Logging.h"
 
 #include "rbdl/Model.h"
@@ -291,12 +292,12 @@ unsigned int ConstraintSet::AddLoopConstraint (
                                      unsigned(rowsInG-1),
                                      unsigned(constraints.size()-1)));
   if(iter.second == false){
-    std::cerr << "Error: Constraint row entry in system is not unique."
-              << " (This should not be possible: contact the "
-                 "maintainer of this code.)"
-              << std::endl;
-    assert(0);
-    abort();
+    std::stringstream errormsg;
+    errormsg << "Error: Constraint row entry in system is not unique."
+             << " (This should not be possible: contact the "
+                "maintainer of this code.)"
+             << std::endl;
+    throw Errors::RBDLError(errormsg.str());
   }
 
   return rowsInG-1;
@@ -340,7 +341,6 @@ unsigned int ConstraintSet::AddCustomConstraint(
     force[    insertAtRowInG+i ] = 0.;
     impulse[  insertAtRowInG+i ] = 0.;
     v_plus[   insertAtRowInG+i ] = 0.;
-
   }
 
   //Set up access maps
@@ -350,10 +350,7 @@ unsigned int ConstraintSet::AddCustomConstraint(
                                   name[name.size()-1],
                                   unsigned(constraints.size()-1)));
     if(iter.second == false){
-      std::cerr << "Error: optional name is not unique."
-                << std::endl;
-      assert(0);
-      abort();
+      throw Errors::RBDLError("Error: optional name is not unique.\n");
     }
 
   }
@@ -364,10 +361,7 @@ unsigned int ConstraintSet::AddCustomConstraint(
                                     customConstraint->getUserDefinedId(),
                                     unsigned(constraints.size()-1)));
     if(iter.second == false){
-      std::cerr << "Error: optional userDefinedId is not unique."
-                << std::endl;
-      assert(0);
-      abort();
+      throw Errors::RBDLError("Error: optional userDefinedId is not unique.\n");
     }
 
   }
@@ -377,13 +371,12 @@ unsigned int ConstraintSet::AddCustomConstraint(
                                      unsigned(rowsInG-1),
                                      unsigned(constraints.size()-1)));
   if(iter.second == false){
-    std::cerr << "Error: Constraint row entry into system is not unique."
-              << " (This should not be possible: contact the "
-                 "maintainer of this code.)"
-              << std::endl;
-    assert(0);
-    abort();
-
+    std::stringstream errormsg; 
+    errormsg << "Error: Constraint row entry into system is not unique."
+             << " (This should not be possible: contact the "
+                "maintainer of this code.)"
+             << std::endl;
+    throw Errors::RBDLError(errormsg.str());
   }
 
   return rowsInG-1;
@@ -396,8 +389,7 @@ bool ConstraintSet::Bind (const Model &model) {
   assert (bound == false);
 
   if (bound) {
-    std::cerr << "Error: binding an already bound constraint set!" << std::endl;
-    abort();
+    throw Errors::RBDLError("Error: binding an already bound constraint set!\n");
   }
   for(unsigned int i=0; i<constraints.size();++i){
     constraints[i]->bind(model);
@@ -932,19 +924,13 @@ bool CalcAssemblyQ (
   ) {
 
   if(Q.size() != model.q_size) {
-    std::cerr << "Incorrect Q vector size." << std::endl;
-    assert(false);
-    abort();
+    throw Errors::RBDLDofMismatchError("Incorrect Q vector size.\n");
   }
   if(QInit.size() != model.q_size) {
-    std::cerr << "Incorrect QInit vector size." << std::endl;
-    assert(false);
-    abort();
+    throw Errors::RBDLDofMismatchError("Incorrect QInit vector size.\n");
   }
   if(weights.size() != model.dof_count) {
-    std::cerr << "Incorrect weights vector size." << std::endl;
-    assert(false);
-    abort();
+    throw Errors::RBDLDofMismatchError("Incorrect weights vector size.\n");
   }
 
   // Initialize variables.
@@ -1036,24 +1022,16 @@ void CalcAssemblyQDot (
   const Math::VectorNd &weights
   ) {
   if(QDot.size() != model.dof_count) {
-    std::cerr << "Incorrect QDot vector size." << std::endl;
-    assert(false);
-    abort();
+    throw Errors::RBDLDofMismatchError("Incorrect QDot vector size.\n");
   }
   if(Q.size() != model.q_size) {
-    std::cerr << "Incorrect Q vector size." << std::endl;
-    assert(false);
-    abort();
+    throw Errors::RBDLDofMismatchError("Incorrect Q vector size.\n");
   }
   if(QDotInit.size() != QDot.size()) {
-    std::cerr << "Incorrect QDotInit vector size." << std::endl;
-    assert(false);
-    abort();
+    throw Errors::RBDLDofMismatchError("Incorrect QDotInit vector size.\n");
   }
   if(weights.size() != QDot.size()) {
-    std::cerr << "Incorrect weight vector size." << std::endl;
-    assert(false);
-    abort();
+    throw Errors::RBDLDofMismatchError("Incorrect weight vector size.\n");
   }
 
   // Initialize variables.
@@ -1584,11 +1562,11 @@ void ForwardDynamicsContactsKokkevis (
   assert (CS.a.size() == CS.size());
 
   if(CS.constraints.size() != CS.contactConstraints.size()) {
-    std::cerr << "Incompatible constraint types: all constraints" 
-              << " must be ContactConstraints for the Kokkevis method" 
-              << std::endl;
-    assert(false);
-    abort();
+    std::stringstream errormsg;
+    errormsg << "Incompatible constraint types: all constraints" 
+             << " must be ContactConstraints for the Kokkevis method" 
+             << std::endl;
+    throw Errors::RBDLError(errormsg.str());
   }
 
   Vector3d point_accel_t;
@@ -2036,9 +2014,7 @@ void SolveLinearSystem (
   LinearSolver ls
   ) {
   if(A.rows() != b.size() || A.cols() != x.size()) {
-    std::cerr << "Mismatching sizes." << std::endl;
-    assert(false);
-    abort();
+    throw Errors::RBDLSizeMismatchError("Mismatching sizes.\n");
   }
 
   // Solve the system A*x = b.
@@ -2058,9 +2034,9 @@ void SolveLinearSystem (
     x = A.householderQr().solve(b);
     break;
   default:
-    std::cerr << "Error: Invalid linear solver: " << ls << std::endl;
-    assert(false);
-    abort();
+    std::ostringstream errormsg;
+    errormsg << "Error: Invalid linear solver: " << ls << std::endl;
+    throw Errors::RBDLError(errormsg.str());
     break;
   }
 }
