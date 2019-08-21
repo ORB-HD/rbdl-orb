@@ -1,5 +1,6 @@
 #include <UnitTest++.h>
 #include "rbdl/rbdl.h"
+#include "PendulumModels.h"
 #include <cassert>
 
 #include <chrono>
@@ -13,6 +14,9 @@ using namespace RigidBodyDynamics::Math;
 const double TEST_PREC = 1.0e-11;
 
 const bool flag_printTimingData = false;
+
+
+
 
 void calcCuboidInertia(double mass,
                        double xLength,
@@ -38,6 +42,8 @@ struct PlanarBipedFloatingBase {
       ,segmentMass(1.0)
       ,X_p(Xtrans(Vector3d(0.,0.,-segmentLength)))
       ,X_s(Xtrans(Vector3d(0.,0.,0.))) {
+
+    model.gravity = Vector3d(0.,0.,-9.81);
 
     Body segment = Body(segmentMass,
                         Vector3d(0, 0., -0.5 * segmentLength),
@@ -67,16 +73,28 @@ struct PlanarBipedFloatingBase {
                                     Xtrans(Vector3d(0.,0.,-segmentLength)),
                                     joint_Ry, segment);
 
-    cs.AddContactConstraint(idxLeftLowerLeg, Vector3d(0.,0.,-segmentLength),
+    cs.resize(2);
+
+    //double stance
+    cs[0].AddContactConstraint(idxLeftLowerLeg, Vector3d(0.,0.,-segmentLength),
                                              Vector3d(1.,0.,0.));
-    cs.AddContactConstraint(idxLeftLowerLeg, Vector3d(0.,0.,-segmentLength),
+    cs[0].AddContactConstraint(idxLeftLowerLeg, Vector3d(0.,0.,-segmentLength),
                                              Vector3d(0.,0.,1.));
-    cs.AddContactConstraint(idxRightLowerLeg, Vector3d(0.,0.,-segmentLength),
+    cs[0].AddContactConstraint(idxRightLowerLeg, Vector3d(0.,0.,-segmentLength),
                                               Vector3d(1.,0.,0.));
-    cs.AddContactConstraint(idxRightLowerLeg, Vector3d(0.,0.,-segmentLength),
+    cs[0].AddContactConstraint(idxRightLowerLeg, Vector3d(0.,0.,-segmentLength),
                                               Vector3d(0.,0.,1.));
 
-    cs.Bind(model);
+    cs[0].Bind(model);
+
+    //single stance
+    cs[1].AddContactConstraint(idxLeftLowerLeg, Vector3d(0.,0.,-segmentLength),
+                                             Vector3d(1.,0.,0.));
+    cs[1].AddContactConstraint(idxLeftLowerLeg, Vector3d(0.,0.,-segmentLength),
+                                             Vector3d(0.,0.,1.));
+    cs[1].Bind(model);
+
+
     q     = VectorNd::Zero(model.dof_count);
     qd    = VectorNd::Zero(model.dof_count);
     qdd   = VectorNd::Zero(model.dof_count);
@@ -85,7 +103,7 @@ struct PlanarBipedFloatingBase {
   }
 
   Model model;
-  ConstraintSet cs;
+  std::vector< ConstraintSet > cs;
 
   VectorNd q;
   VectorNd qd;
@@ -126,12 +144,13 @@ struct SpatialBipedFloatingBase {
       ,X_p(Xtrans(Vector3d(0.,0.,-segmentLength)))
       ,X_s(Xtrans(Vector3d(0.,0.,0.))) {
 
-    /*
-      From the biped's perspective
-      x: forward
-      z: up
-      y: left
-    */
+
+    //From the biped's perspective
+    //x: forward
+    //z: up
+    //y: left
+
+    model.gravity = Vector3d(0.,0.,-9.81);
 
     Vector3d segmentInertia, pelvisInertia, footInertia;
     calcCuboidInertia(segmentMass,
@@ -314,53 +333,72 @@ TEST_FIXTURE(PlanarBipedFloatingBase, TestCorrectness) {
     }
   }
 
-  //All of the ugly numbers below are pseudo random numbers generated
-  //from Matlab to ensure that the method works, and that the tests are
-  //not passing due to some quirk of symmetry in the state of the model.
+  //A statically stable standing pose
   q0[0] = 0;
   q0[1] = 1.0;
   q0[2] = 0;
-  q0[3] = 5.472155299638031e-01;
-  q0[4] = 1.386244428286791e-01;
-  q0[5] = 1.492940055590575e-01;
-  q0[6] = 2.575082541237365e-01;
+  q0[3] = M_PI*0.25;
+  q0[4] =-M_PI*0.25;
+  q0[5] =-M_PI*0.25;
+  q0[6] = M_PI*0.25;
 
-  qd0[0] = 1.965952504312082e-01;
-  qd0[1] = 2.510838579760311e-01;
-  qd0[2] = 6.160446761466392e-01;
-  qd0[3] = 4.732888489027293e-01;
-  qd0[4] = 3.516595070629968e-01;
-  qd0[5] = 8.308286278962909e-01;
-  qd0[6] = 5.852640911527243e-01;
+  qd0[0] = 0.;
+  qd0[1] = 0.;
+  qd0[2] = 0.;
+  qd0[3] = 0.;
+  qd0[4] = 0.;
+  qd0[5] = 0.;
+  qd0[6] = 0.;
 
   for(unsigned int i =0; i< q.rows();++i){
     weights[i]    = 1;
   }
 
-  qddTarget[0]  = 5.497236082911395e-01;
-  qddTarget[1]  = 9.171936638298100e-01;
-  qddTarget[2]  = 2.858390188203735e-01;
-  qddTarget[3]  = 7.572002291107213e-01;
-  qddTarget[4]  = 7.537290942784953e-01;
-  qddTarget[5]  = 3.804458469753567e-01;
-  qddTarget[6]  = 5.678216407252211e-01;
+  qddTarget[0]  = 0.;
+  qddTarget[1]  = 0.;
+  qddTarget[2]  = 0.;
+  qddTarget[3]  = 0.;
+  qddTarget[4]  = 0.;
+  qddTarget[5]  = 0.;
+  qddTarget[6]  = 0.;
 
+  //============================================================================
+  // Double stance: fully actuated
+  //============================================================================
 
-  CalcAssemblyQ(model,q0,cs,q,weights);
-  CalcAssemblyQDot(model,q,qd0,cs,qd,weights);
-  
+  //cs[0]: double stance
+  bool qasm = CalcAssemblyQ(model,q0,cs[0],q,weights);
+  CHECK(qasm);
+  CalcAssemblyQDot(model,q,qd0,cs[0],qd,weights);
+
 
   //6. Call InverseDynamicsConstraints & repeat setps 4 & 5
   VectorNd tauIDC = VectorNd::Zero(tau.size());
   VectorNd qddIDC = VectorNd::Zero(qdd.size());
 
-  cs.SetActuationMap(model, dofActuated);
+  cs[0].SetActuationMap(model, dofActuated);
+
+#ifndef RBDL_USE_SIMPLE_MATH
+  //Test to see if this model is compatiable with the exact IDC operator
+  bool isCompatible = isConstrainedSystemFullyActuated(
+                        model,q,qd,cs[0]);
+  CHECK(isCompatible);
+
+  //The SimpleMath library fails if it tries to solve this
+  //linear system. Eigen has no problems.
   InverseDynamicsConstraints(model,
                              q,qd,qddTarget,
-                             cs, qddIDC,tauIDC);
-  lambdaIdc = cs.force;
-  ForwardDynamicsConstraintsDirect(model,q,qd,tauIDC,cs,qddFwd);
-  lambdaFwd = cs.force;
+                             cs[0], qddIDC,tauIDC);
+
+  //In this case the target qdd should be reachable exactly.
+  for(unsigned int i=0; i<qddIDC.rows();++i){
+    CHECK_CLOSE(qddIDC[i], qddTarget[i],TEST_PREC);
+  }
+
+
+  lambdaIdc = cs[0].force;
+  ForwardDynamicsConstraintsDirect(model,q,qd,tauIDC,cs[0],qddFwd);
+  lambdaFwd = cs[0].force;
 
 
   qddErr = qddIDC-qddFwd;
@@ -371,32 +409,133 @@ TEST_FIXTURE(PlanarBipedFloatingBase, TestCorrectness) {
   for(unsigned int i=0; i<lambdaFwd.rows();++i){
     CHECK_CLOSE(lambdaIdc[i], lambdaFwd[i], TEST_PREC);
   }
+#endif
+  //Check the relaxed method
+  VectorNd tauIDCR(tauIDC.rows());
+  VectorNd qddIDCR(tauIDC.rows());
+  InverseDynamicsConstraintsRelaxed(model,
+                             q,qd,qddTarget,
+                             cs[0], qddIDCR,tauIDCR);
+  lambdaIdc = cs[0].force;
 
-  //Timing comparision    
+  //In this case the acceleration constraint is relaxed and so there
+  //is always some error between what is asked for and what is received.
+  for(unsigned int i=0; i<qddIDCR.rows();++i){
+    CHECK_CLOSE(qddIDCR[i], qddTarget[i],0.01);
+  }
+
+  ForwardDynamicsConstraintsDirect(model,q,qd,tauIDCR,cs[0],qddFwd);
+  lambdaFwd = cs[0].force;
+
+  lambdaErr=lambdaIdc-lambdaFwd;
+  for(unsigned int i=0; i<q.rows();++i){
+    CHECK_CLOSE(qddIDCR[i], qddFwd[i], TEST_PREC);
+  }
+  for(unsigned int i=0; i<lambdaFwd.rows();++i){
+    CHECK_CLOSE(lambdaIdc[i], lambdaFwd[i], TEST_PREC);
+  }
+
+
+  //============================================================================
+  // Single stance: under actuated because of the point foot
+  //============================================================================
+
+  q0.setZero();
+  q0[1]=1.0;
+  q0[2]=0.;
+  qd.setZero();
+  qd0.setZero();
+  qd0[2] = 0.001; //Will result in the system rotating about the +z axis
+
+  qasm = CalcAssemblyQ(model,q0,cs[1],q,weights);
+  CHECK(qasm);
+  CalcAssemblyQDot(model,q,qd0,cs[1],qd,weights);
+
+
+  //6. Call InverseDynamicsConstraints & repeat setps 4 & 5
+  tauIDC = VectorNd::Zero(tau.size());
+  qddIDC = VectorNd::Zero(qdd.size());
+
+  cs[1].SetActuationMap(model, dofActuated);
+
+#ifndef RBDL_USE_SIMPLE_MATH
+  //Test to see if this model is compatiable with the exact IDC operator
+  isCompatible = isConstrainedSystemFullyActuated(
+                        model,q,qd,cs[1]);
+  CHECK(isCompatible==false);
+#endif
+  //Check the relaxed method
+  qddTarget.setZero();
+  InverseDynamicsConstraintsRelaxed(model,
+                             q,qd,qddTarget,
+                             cs[1], qddIDCR,tauIDCR);
+  lambdaIdc = cs[1].force;
+
+  //In this case the acceleration constraint is relaxed and so there
+  //is always some error between what is asked for and what is received.
+  for(unsigned int i=0; i<qddIDC.rows();++i){
+    if(dofActuated[i]==true){
+      CHECK_CLOSE(qddIDCR[i], qddTarget[i],0.01);
+    }
+  }
+
+  ForwardDynamicsConstraintsDirect(model,q,qd,tauIDCR,cs[1],qddFwd);
+  lambdaFwd = cs[1].force;
+
+  lambdaErr=lambdaIdc-lambdaFwd;
+  for(unsigned int i=0; i<q.rows();++i){
+    CHECK_CLOSE(qddIDCR[i], qddFwd[i], TEST_PREC);
+  }
+  for(unsigned int i=0; i<lambdaFwd.rows();++i){
+    CHECK_CLOSE(lambdaIdc[i], lambdaFwd[i], TEST_PREC);
+  }
+
+
+
+
+  //============================================================================
+  //Timing comparision
+  //============================================================================
   if(flag_printTimingData){
     unsigned int iterations = 100;
 
-    auto t1 = std::chrono::high_resolution_clock::now();
+    auto tidcr1 = std::chrono::high_resolution_clock::now();
+    for(unsigned int i=0; i<iterations; ++i){
+      InverseDynamicsConstraintsRelaxed(model,
+                                 q,qd,qddTarget,
+                                 cs[0],qddIDC,tauIDC);
+    }
+    auto tidcr2   = std::chrono::high_resolution_clock::now();
+    auto tidcr = std::chrono::duration_cast<std::chrono::microseconds>(tidcr2-tidcr1);
+
+
+#ifndef RBDL_USE_SIMPLE_MATH
+    auto tidc1 = std::chrono::high_resolution_clock::now();
     for(unsigned int i=0; i<iterations; ++i){
       InverseDynamicsConstraints(model,
                                  q,qd,qddTarget,
-                                 cs,qddIDC,tauIDC);
+                                 cs[0],qddIDC,tauIDC);
     }
-    auto t2   = std::chrono::high_resolution_clock::now();
-    auto tidc = std::chrono::duration_cast<std::chrono::microseconds>(t2-t1);
-
-    t1 = std::chrono::high_resolution_clock::now();
+    auto tidc2   = std::chrono::high_resolution_clock::now();
+    auto tidc = std::chrono::duration_cast<std::chrono::microseconds>(tidc2-tidc1);
+#endif
+    auto tfd1 = std::chrono::high_resolution_clock::now();
     for(unsigned int i=0; i<iterations; ++i){
-      ForwardDynamicsConstraintsDirect(model,q,qd,tauIDC,cs,qddFwd);
+      ForwardDynamicsConstraintsNullSpace(model,q,qd,tauIDC,cs[0],qddFwd);
     }
-    t2 = std::chrono::high_resolution_clock::now();
-    auto tfd = std::chrono::duration_cast<std::chrono::microseconds>(t2-t1);
+    auto tfd2 = std::chrono::high_resolution_clock::now();
+    auto tfd = std::chrono::duration_cast<std::chrono::microseconds>(tfd2-tfd1);
 
     std::cout << "Planar Biped Dof: " << model.dof_count << std::endl;
     std::cout << "Cost per evaluation : us, xfd " << std::endl;
-    std::cout << "IDCns: " << double(tidc.count()) / double(iterations) << " "
+#ifndef RBDL_USE_SIMPLE_MATH
+    std::cout << "IDC: " << double(tidc.count()) / double(iterations) << " "
                         << double(tidc.count())/double(tfd.count()) << std::endl;
-    std::cout << "FD:    " << double(tfd.count()) / double(iterations) << " "
+#endif
+    std::cout << "IDCRelaxed: " << double(tidcr.count()) / double(iterations) << " "
+                        << double(tidcr.count())/double(tfd.count()) << std::endl;
+
+    std::cout << "FDNullSp:    " << double(tfd.count()) / double(iterations) << " "
                         << double(tfd.count())/double(tfd.count()) << std::endl;
   }
 
@@ -434,74 +573,73 @@ TEST_FIXTURE(SpatialBipedFloatingBase, TestCorrectness) {
     }
   }
 
-  //All of the ugly numbers below are pseudo random numbers generated
-  //from Matlab to ensure that the method works, and that the tests are
-  //not passing due to some quirk of symmetry in the state of the model.
+  //A statically stable standing pose which will have a physically
+  //consistent solution
+  q0[0]  = 0.;         //tx Floating base
+  q0[1]  = 0.;         //ty
+  q0[2]  = 0.75;       //tx
+  q0[3]  = 0.;         //rx
+  q0[4]  = 0.;         //ry
+  q0[5]  = 0.;         //rz
+  q0[6]  = 0.;         //rx Left hip
+  q0[7]  =  M_PI*0.25; //ry
+  q0[8]  = 0.;         //rz
+  q0[9]  = -M_PI*0.25; //ry Left knee
+  q0[10] = 0.;         //rx Left ankle
+  q0[11] = 0.;         //ry
+  q0[12] = 0.;         //rx Right hip
+  q0[13] = -M_PI*0.25; //ry
+  q0[14] = 0.;         //rz
+  q0[15] =  M_PI*0.25; //ry Right knee
+  q0[16] = 0.;         //rx Right ankle
+  q0[17] = 0.;         //ry
 
-  q0[0] = 7.922073295595544e-01;
-  q0[1] = 9.594924263929030e-01;
-  q0[2] = 6.557406991565868e-01;
-  q0[3] = 3.571167857418955e-02;
-  q0[4] = 8.491293058687771e-01;
-  q0[5] = 9.339932477575505e-01;
-  q0[6] = 6.787351548577735e-01;
-  q0[7] = 7.577401305783334e-01;
-  q0[8] = 7.431324681249162e-01;
-  q0[9] = 3.922270195341682e-01;
-  q0[10] = 6.554778901775566e-01;
-  q0[11] = 1.711866878115618e-01;
-  q0[12] = 7.060460880196088e-01;
-  q0[13] = 3.183284637742068e-02;
-  q0[14] = 2.769229849608900e-01;
-  q0[15] = 4.617139063115394e-02;
-  q0[16] = 9.713178123584754e-02;
-  q0[17] = 8.234578283272926e-01;
-
-
-  qd0[0]  = 6.948286229758170e-01;
-  qd0[1]  = 3.170994800608605e-01;
-  qd0[2]  = 9.502220488383549e-01;
-  qd0[3]  = 3.444608050290876e-02;
-  qd0[4]  = 4.387443596563982e-01;
-  qd0[5]  = 3.815584570930084e-01;
-  qd0[6]  = 7.655167881490024e-01;
-  qd0[7]  = 7.951999011370632e-01;
-  qd0[8]  = 1.868726045543786e-01;
-  qd0[9]  = 4.897643957882311e-01;
-  qd0[10] = 4.455862007108995e-01;
-  qd0[11] = 6.463130101112646e-01;
-  qd0[12] = 7.093648308580726e-01;
-  qd0[13] = 7.546866819823609e-01;
-  qd0[14] = 2.760250769985784e-01;
-  qd0[15] = 6.797026768536748e-01;
-  qd0[16] = 6.550980039738407e-01;
-  qd0[17] = 1.626117351946306e-01;
+  qd0[0]  = 0.;
+  qd0[1]  = 0.;
+  qd0[2]  = 0.;
+  qd0[3]  = 0.;
+  qd0[4]  = 0.;
+  qd0[5]  = 0.;
+  qd0[6]  = 0.;
+  qd0[7]  = 0.;
+  qd0[8]  = 0.;
+  qd0[9]  = 0.;
+  qd0[10] = 0.;
+  qd0[11] = 0.;
+  qd0[12] = 0.;
+  qd0[13] = 0.;
+  qd0[14] = 0.;
+  qd0[15] = 0.;
+  qd0[16] = 0.;
+  qd0[17] = 0.;
 
   for(unsigned int i =0; i< q.rows();++i){
     weights[i]    = 1.;
   }
 
-  qddTarget[0]  = 1.189976815583766e-01;
-  qddTarget[1]  = 4.983640519821430e-01;
-  qddTarget[2]  = 9.597439585160811e-01;
-  qddTarget[3]  = 3.403857266661332e-01;
-  qddTarget[4]  = 5.852677509797773e-01;
-  qddTarget[5]  = 2.238119394911370e-01;
-  qddTarget[6]  = 7.512670593056529e-01;
-  qddTarget[7]  = 2.550951154592691e-01;
-  qddTarget[8]  = 5.059570516651424e-01;
-  qddTarget[9]  = 6.990767226566860e-01;
-  qddTarget[10] = 8.909032525357985e-01;
-  qddTarget[11] = 9.592914252054443e-01;
-  qddTarget[12] = 5.472155299638031e-01;
-  qddTarget[13] = 1.386244428286791e-01;
-  qddTarget[14] = 1.492940055590575e-01;
-  qddTarget[15] = 2.575082541237365e-01;
-  qddTarget[16] = 8.407172559836625e-01;
-  qddTarget[17] = 2.542821789715310e-01;
+  qddTarget[0]  = 0.;
+  qddTarget[1]  = 0.;
+  qddTarget[2]  = 0.;
+  qddTarget[3]  = 0.;
+  qddTarget[4]  = 0.;
+  qddTarget[5]  = 0.;
+  qddTarget[6]  = 0.;
+  qddTarget[7]  = 0.;
+  qddTarget[8]  = 0.;
+  qddTarget[9]  = 0.;
+  qddTarget[10] = 0.;
+  qddTarget[11] = 0.;
+  qddTarget[12] = 0.;
+  qddTarget[13] = 0.;
+  qddTarget[14] = 0.;
+  qddTarget[15] = 0.;
+  qddTarget[16] = 0.;
+  qddTarget[17] = 0.;
 
 
-  CalcAssemblyQ(model,q0,cs,q,weights);
+  bool qAsm=CalcAssemblyQ(model,q0,cs,q,weights);
+  CHECK(qAsm==true);
+
   CalcAssemblyQDot(model,q,qd0,cs,qd,weights);
 
 
@@ -510,14 +648,29 @@ TEST_FIXTURE(SpatialBipedFloatingBase, TestCorrectness) {
   VectorNd tauIDC = VectorNd::Zero(tau.size());
   VectorNd qddIDC = VectorNd::Zero(qdd.size());
   cs.SetActuationMap(model,dofActuated);
+#ifndef RBDL_USE_SIMPLE_MATH
+  //Test to see if this model is compatiable with the exact IDC operator
+  bool isCompatible = isConstrainedSystemFullyActuated(
+                        model,q,qd,cs);
+  CHECK(isCompatible);
+
+  //The SimpleMath library fails if it tries to solve this
+  //linear system. Eigen has no problems.
   InverseDynamicsConstraints(model,
                              q,qd,qddTarget,
                              cs, qddIDC,tauIDC);
   lambdaIdc = cs.force;
 
+  //In this case the target qdd should be reachable exactly.
+  for(unsigned int i=0; i<qddIDC.rows();++i){
+    CHECK_CLOSE(qddIDC[i], qddTarget[i],TEST_PREC);
+  }
+
+
   ForwardDynamicsConstraintsDirect(model,q,qd,tauIDC,cs,qddFwd);
   lambdaFwd = cs.force;
 
+  //Check that the solution is physically consistent
   qddErr = qddIDC-qddFwd;
   lambdaErr= lambdaIdc-lambdaFwd;
   for(unsigned int i=0; i<q.rows();++i){
@@ -526,32 +679,466 @@ TEST_FIXTURE(SpatialBipedFloatingBase, TestCorrectness) {
   for(unsigned int i=0; i<lambdaIdc.rows();++i){
     CHECK_CLOSE(lambdaIdc[i], lambdaFwd[i], TEST_PREC);
   }
+#endif
+
+  //Check the relaxed method
+  VectorNd tauIDCR(tauIDC.rows());
+  VectorNd qddIDCR(qddIDC.rows());
+  InverseDynamicsConstraintsRelaxed(model,
+                             q,qd,qddTarget,
+                             cs, qddIDCR,tauIDCR);
+  lambdaIdc = cs.force;
+
+  //In this case the acceleration constraint is relaxed and so there
+  //is always some error between what is asked for and what is received.
+  for(unsigned int i=0; i<qddIDCR.rows();++i){
+    CHECK_CLOSE(qddIDCR[i], qddIDC[i],0.01);
+  }
+
+
+  ForwardDynamicsConstraintsDirect(model,q,qd,tauIDCR,cs,qddFwd);
+  lambdaFwd = cs.force;
+
+  //Check that the solution is physically consistent
+  qddErr = qddIDCR-qddFwd;
+  lambdaErr= lambdaIdc-lambdaFwd;
+  for(unsigned int i=0; i<q.rows();++i){
+    CHECK_CLOSE(qddIDCR[i], qddFwd[i], TEST_PREC);
+  }
+  for(unsigned int i=0; i<lambdaIdc.rows();++i){
+    CHECK_CLOSE(lambdaIdc[i], lambdaFwd[i], TEST_PREC);
+  }
+
 
   //Timing comparision
   if(flag_printTimingData){
     unsigned int iterations = 100;
 
-    auto t1 = std::chrono::high_resolution_clock::now();
+    auto tidcr1 = std::chrono::high_resolution_clock::now();
+    for(unsigned int i=0; i<iterations; ++i){
+      InverseDynamicsConstraintsRelaxed(model,
+                                 q,qd,qddTarget,
+                                 cs,qddIDC,tauIDC);
+    }
+    auto tidcr2   = std::chrono::high_resolution_clock::now();
+    auto tidcr = std::chrono::duration_cast<std::chrono::microseconds>(tidcr2-tidcr1);
+
+
+#ifndef RBDL_USE_SIMPLE_MATH
+    auto tidc1 = std::chrono::high_resolution_clock::now();
     for(unsigned int i=0; i<iterations; ++i){
       InverseDynamicsConstraints(model,
                                  q,qd,qddTarget,
-                                 cs, qddIDC,tauIDC);
+                                 cs,qddIDC,tauIDC);
     }
-    auto t2     = std::chrono::high_resolution_clock::now();
-    auto tidc = std::chrono::duration_cast<std::chrono::microseconds>(t2-t1);
-
-    t1 = std::chrono::high_resolution_clock::now();
+    auto tidc2   = std::chrono::high_resolution_clock::now();
+    auto tidc = std::chrono::duration_cast<std::chrono::microseconds>(tidc2-tidc1);
+#endif
+    auto tfd1 = std::chrono::high_resolution_clock::now();
     for(unsigned int i=0; i<iterations; ++i){
-      ForwardDynamicsConstraintsDirect(model,q,qd,tauIDC,cs,qddFwd);
+      ForwardDynamicsConstraintsNullSpace(model,q,qd,tauIDC,cs,qddFwd);
     }
-    t2 = std::chrono::high_resolution_clock::now();
-    auto tfd = std::chrono::duration_cast<std::chrono::microseconds>(t2-t1);
+    auto tfd2 = std::chrono::high_resolution_clock::now();
+    auto tfd = std::chrono::duration_cast<std::chrono::microseconds>(tfd2-tfd1);
 
     std::cout << "Spatial Biped Dof: " << model.dof_count << std::endl;
-    std::cout << "Cost per evaluation : us, xfd" << std::endl;
-    std::cout << "IDCns: " << double(tidc.count())/double(iterations) << " "
+    std::cout << "Cost per evaluation : us, xfd " << std::endl;
+#ifndef RBDL_USE_SIMPLE_MATH
+    std::cout << "IDC: " << double(tidc.count()) / double(iterations) << " "
                         << double(tidc.count())/double(tfd.count()) << std::endl;
-    std::cout << "FD:    " << double(tfd.count())/double(iterations) << " "
+#endif
+    std::cout << "IDCRelaxed: " << double(tidcr.count()) / double(iterations) << " "
+                        << double(tidcr.count())/double(tfd.count()) << std::endl;
+
+    std::cout << "FDNullSp:    " << double(tfd.count()) / double(iterations) << " "
                         << double(tfd.count())/double(tfd.count()) << std::endl;
   }
+
 }
+
+
+TEST(CorrectnessTestWithSinglePlanarPendulum){
+
+  //With loop constraints
+  SinglePendulumAbsoluteCoordinates spa
+    = SinglePendulumAbsoluteCoordinates();
+
+  //Without any joint coordinates
+  SinglePendulumJointCoordinates spj
+    = SinglePendulumJointCoordinates();
+
+
+  //1. Set the pendulum modeled using joint coordinates to a specific
+  //    state and then compute the spatial acceleration of the body.
+  spj.q[0]  = M_PI/3.0;   //About z0
+  spj.qd.setZero();
+  spj.qdd.setZero();
+  spj.tau.setZero();
+
+
+  InverseDynamics(spj.model,spj.q,spj.qd,spj.qdd,spj.tau);
+
+  Vector3d r010 = CalcBodyToBaseCoordinates(
+                    spj.model,spj.q,spj.idB1,
+                    Vector3d(0.,0.,0.),true);
+
+  //2. Set the pendulum modelled using absolute coordinates to the
+  //   equivalent state as the pendulum modelled using joint
+  //   coordinates.
+
+  spa.q[0]  = r010[0];
+  spa.q[1]  = r010[1];
+  spa.q[2]  = spj.q[0];
+
+
+  spa.qd.setZero();
+  spa.qdd.setZero();
+
+  spa.tau[0]  = 0.;//tx
+  spa.tau[1]  = 0.;//ty
+  spa.tau[2]  = spj.tau[0];//rz
+
+
+  //Test
+  //  calcPositionError
+  //  calcVelocityError
+
+  VectorNd err(spa.cs.size());
+  VectorNd errd(spa.cs.size());
+
+  CalcConstraintsPositionError(spa.model,spa.q,spa.cs,err,true);
+  CalcConstraintsVelocityError(spa.model,spa.q,spa.qd,spa.cs,errd,true);
+
+  for(unsigned int i=0; i<err.rows();++i){
+    CHECK_CLOSE(0, err[i], TEST_PREC);
+  }
+  for(unsigned int i=0; i<errd.rows();++i){
+    CHECK_CLOSE(0, errd[i], TEST_PREC);
+  }
+
+  ForwardDynamicsConstraintsDirect(spa.model,spa.q, spa.qd, spa.tau,spa.cs,
+                                   spa.qdd);
+  for(unsigned int i=0; i<spa.qdd.rows();++i){
+    CHECK_CLOSE(0., spa.qdd[i], TEST_PREC);
+  }
+
+  std::vector< bool > actuationMap;
+  actuationMap.resize(spa.tau.rows());
+  for(unsigned int i=0; i<actuationMap.size();++i){
+    actuationMap[i]=false;
+  }
+  actuationMap[2] = true;
+
+  VectorNd qddDesired = VectorNd::Zero(spa.qdd.rows());
+  VectorNd qddIdc = VectorNd::Zero(spa.qdd.rows());
+  VectorNd tauIdc = VectorNd::Zero(spa.qdd.rows());
+
+  //The IDC operator should be able to statisfy qdd=0 and return a tau
+  //vector that matches the hand solution produced above.
+  spa.cs.SetActuationMap(spa.model,actuationMap);
+#ifndef RBDL_USE_SIMPLE_MATH
+  //Test to see if this model is compatiable with the exact IDC operator
+  bool isCompatible = isConstrainedSystemFullyActuated(
+                        spa.model,spa.q,spa.qd,spa.cs);
+  CHECK(isCompatible);
+
+  InverseDynamicsConstraints(spa.model,spa.q,spa.qd,qddDesired,
+                                          spa.cs, qddIdc,tauIdc);
+
+  for(unsigned int i=0; i<qddIdc.rows();++i){
+    CHECK_CLOSE(0.,qddIdc[i],TEST_PREC);
+  }
+  for(unsigned int i=0; i<tauIdc.rows();++i){
+    CHECK_CLOSE(spa.tau[i],tauIdc[i],TEST_PREC);
+  }
+#endif
+
+  InverseDynamicsConstraintsRelaxed(spa.model,spa.q,spa.qd,qddDesired,
+                                    spa.cs, qddIdc,tauIdc);
+
+  //For this simple single body system the desired qdd's are met exactly
+  //(thanks to the small updates I've made
+  for(unsigned int i=0; i<qddIdc.rows();++i){
+    CHECK_CLOSE(0.,qddIdc[i],TEST_PREC);
+  }
+  for(unsigned int i=0; i<tauIdc.rows();++i){
+    CHECK_CLOSE(spa.tau[i],tauIdc[i],TEST_PREC);
+  }
+}
+
+
+
+TEST(CorrectnessTestWithDoublePerpendicularPendulum){
+
+  //With loop constraints
+  DoublePerpendicularPendulumAbsoluteCoordinates dba
+    = DoublePerpendicularPendulumAbsoluteCoordinates();
+
+  //Without any joint coordinates
+  DoublePerpendicularPendulumJointCoordinates dbj
+    = DoublePerpendicularPendulumJointCoordinates();
+
+
+  //1. Set the pendulum modeled using joint coordinates to a specific
+  //    state and then compute the spatial acceleration of the body.
+  dbj.q[0]  = M_PI/3.0;   //About z0
+  dbj.q[1]  = M_PI/6.0;         //About y1
+  dbj.qd.setZero();
+  dbj.qdd.setZero();
+  dbj.tau.setZero();
+
+
+  InverseDynamics(dbj.model,dbj.q,dbj.qd,dbj.qdd,dbj.tau);
+  //ForwardDynamics(dbj.model,dbj.q,dbj.qd,dbj.tau,dbj.qdd);
+
+  Vector3d r010 = CalcBodyToBaseCoordinates(
+                    dbj.model,dbj.q,dbj.idB1,
+                    Vector3d(0.,0.,0.),true);
+  Vector3d r020 = CalcBodyToBaseCoordinates(
+                    dbj.model,dbj.q,dbj.idB2,
+                    Vector3d(0.,0.,0.),true);
+  Vector3d r030 = CalcBodyToBaseCoordinates(
+                    dbj.model,dbj.q,dbj.idB2,
+                    Vector3d(dbj.l2,0.,0.),true);
+
+  //2. Set the pendulum modelled using absolute coordinates to the
+  //   equivalent state as the pendulum modelled using joint
+  //   coordinates. Next
+
+
+  dba.q[0]  = r010[0];
+  dba.q[1]  = r010[1];
+  dba.q[2]  = r010[2];
+  dba.q[3]  = dbj.q[0];
+  dba.q[4]  = 0;
+  dba.q[5]  = 0;
+  dba.q[6]  = r020[0];
+  dba.q[7]  = r020[1];
+  dba.q[8]  = r020[2];
+  dba.q[9]  = dbj.q[0];
+  dba.q[10] = dbj.q[1];
+  dba.q[11] = 0;
+
+  dba.qd.setZero();
+  dba.qdd.setZero();
+
+  dba.tau[0]  = 0.;//tx
+  dba.tau[1]  = 0.;//ty
+  dba.tau[2]  = 0.;//tz
+  dba.tau[3]  = dbj.tau[0];//rz
+  dba.tau[4]  = 0.;//ry
+  dba.tau[5]  = 0.;//rx
+  dba.tau[6]  = 0.;//tx
+  dba.tau[7]  = 0.;//ty
+  dba.tau[8]  = 0.;//tz
+  dba.tau[9]  = 0.;//rz
+  dba.tau[10] = dbj.tau[1];//ry
+  dba.tau[11] = 0.;//rx
+
+
+
+  VectorNd err(dba.cs.size());
+  VectorNd errd(dba.cs.size());
+
+  CalcConstraintsPositionError(dba.model,dba.q,dba.cs,err,true);
+  CalcConstraintsVelocityError(dba.model,dba.q,dba.qd,dba.cs,errd,true);
+
+  for(unsigned int i=0; i<err.rows();++i){
+    CHECK_CLOSE(0, err[i], TEST_PREC);
+  }
+  for(unsigned int i=0; i<errd.rows();++i){
+    CHECK_CLOSE(0, errd[i], TEST_PREC);
+  }
+
+  ForwardDynamicsConstraintsDirect(dba.model,dba.q, dba.qd, dba.tau,dba.cs,
+                                   dba.qdd);
+  for(unsigned int i=0; i<dba.qdd.rows();++i){
+    CHECK_CLOSE(0., dba.qdd[i], TEST_PREC);
+  }
+
+  std::vector< bool > actuationMap;
+  actuationMap.resize(dba.tau.rows());
+  for(unsigned int i=0; i<actuationMap.size();++i){
+    actuationMap[i]=false;
+  }
+  actuationMap[3] = true;
+  actuationMap[10] = true;
+
+  VectorNd qddDesired = VectorNd::Zero(dba.qdd.rows());
+  VectorNd qddIdc = VectorNd::Zero(dba.qdd.rows());
+  VectorNd tauIdc = VectorNd::Zero(dba.qdd.rows());
+
+  //The IDC operator should be able to statisfy qdd=0 and return a tau
+  //vector that matches the hand solution produced above.
+
+  dba.cs.SetActuationMap(dba.model,actuationMap);
+#ifndef RBDL_USE_SIMPLE_MATH  
+  //Test to see if this model is compatiable with the exact IDC operator
+  bool isCompatible = isConstrainedSystemFullyActuated(
+                        dba.model,dba.q,dba.qd,dba.cs);
+  CHECK(isCompatible);
+
+  InverseDynamicsConstraints(dba.model,dba.q,dba.qd,qddDesired,
+                                          dba.cs, qddIdc,tauIdc);
+
+  for(unsigned int i=0; i<qddIdc.rows();++i){
+    CHECK_CLOSE(0.,qddIdc[i],TEST_PREC);
+  }
+  for(unsigned int i=0; i<tauIdc.rows();++i){
+    CHECK_CLOSE(dba.tau[i],tauIdc[i],TEST_PREC);
+  }
+#endif
+  InverseDynamicsConstraintsRelaxed(dba.model,dba.q,dba.qd,qddDesired,
+                                          dba.cs, qddIdc,tauIdc);
+
+  //The relaxed operator is not able to exactly satisfy the desired
+  //accelerations, though the error will be on the order of 1/10 for this system
+
+  for(unsigned int i=0; i<qddIdc.rows();++i){
+    CHECK_CLOSE(qddDesired[i],qddIdc[i],0.2);
+  }
+
+  //Check if the result is physically consistent.
+  VectorNd qddCheck(qddIdc.rows());
+  ForwardDynamicsConstraintsDirect(dba.model,dba.q,dba.qd, tauIdc, dba.cs, qddCheck);
+
+  for(unsigned int i=0; i<qddIdc.rows();++i){
+    CHECK_CLOSE(qddCheck[i],qddIdc[i],TEST_PREC);
+  }
+
+}
+
+TEST(CorrectnessTestWithUnderactuatedCartPendulum){
+  //This model is not compatible with InverseDynamicsConstraints
+  //which is valuable: all other models tested have been.
+  //This model is identical to the one presented in Sec. 3 of Henning's thesis
+
+  Model model;
+  model.gravity = Vector3d(0.,0.,-9.81);
+
+  double m1 = 10;
+  double l1 = 1.;
+  double h1 = 0.5;
+  double J1xx = m1*(h1*h1+h1*h1)/12.;
+  double J1yy = m1*(l1*l1+h1*h1)/12.;
+  double J1zz = m1*(l1*l1+h1*h1)/12.;
+
+  double m2 = 1.;
+  double l2 = 1.;
+  double J2xx = m2*(l1*l1)/3.;
+  double J2yy = m2*(l1*l1)/3.;
+  double J2zz = m2*(l1*l1)/30.;
+
+
+  Body cart1 = Body(m1, Vector3d(0., 0., 0.),
+                    Matrix3d(   J1xx,   0.,  0.,
+                                  0., J1yy,  0.,
+                                  0.,   0.,  J1zz));
+
+  Body link2 = Body(m2, Vector3d( 0., -l2*0.5, 0.),
+                    Matrix3d( J2xx,   0. ,   0.,
+                                 0., J2yy,   0.,
+                                 0.,  0. ,  J2zz));
+
+  Joint jointXYRz (SpatialVector(0.,0.,0., 1.,0.,0.),
+                   SpatialVector(0.,0.,0., 0.,0.,1.),
+                   SpatialVector(0.,1.,0, 0.,0.,0.));
+
+  Joint jointRy (SpatialVector(0.,1.,0., 0.,0.,0.));
+
+  unsigned int idB1 = model.AddBody(0, SpatialTransform(), jointXYRz, cart1);
+  unsigned int idB2 = model.AddBody(idB1, SpatialTransform(), jointRy, link2);
+
+  ConstraintSet cs;
+  SpatialTransform X;
+  X.r.setZero();
+  X.E = Matrix3d::Identity();
+  unsigned int cp1=cs.AddLoopConstraint(0,idB1,X,X,SpatialVector(0,0,0,0,0,1));
+  unsigned int cp2=cs.AddLoopConstraint(0,idB1,X,X,SpatialVector(0,1,0,0,0,0));
+
+  cs.Bind(model);
+
+  //This system should not be compatible with the InverseDynamicsConstraints
+  //operator:
+
+  VectorNd q,qd,qdd,qddDesired, qddFwd,tau;
+  q.resize(model.q_size);
+  qd.resize(model.qdot_size);
+  qdd.resize(model.qdot_size);
+  qddFwd.resize(model.qdot_size);
+  qddDesired.resize(model.qdot_size);
+  tau.resize(model.qdot_size);
+
+  q.setZero();
+  qd.setZero();
+  qdd.setZero();
+  qddFwd.setZero();
+  qddDesired.setZero();
+  tau.setZero();
+
+  std::vector< bool > actuation;
+  actuation.resize(model.qdot_size);
+  for(unsigned int i=0; i<actuation.size();++i){
+    actuation[i] = false;
+  }
+  actuation[model.qdot_size-1] = true;
+  cs.SetActuationMap(model,actuation);
+
+#ifndef RBDL_USE_SIMPLE_MATH
+  bool isCompatible =
+      isConstrainedSystemFullyActuated(model,q,qd,cs);
+  CHECK(isCompatible == false);
+#endif
+  //pose 1
+  InverseDynamicsConstraintsRelaxed(model,q,qd,qddDesired,cs,qdd,tau);
+  for(unsigned int i=0; i<qddDesired.rows();++i){
+    CHECK_CLOSE(qdd[i],qddDesired[i],0.01);
+  }
+
+  //Check if the result is physically consistent.
+  ForwardDynamicsConstraintsDirect(model,q,qd, tau, cs, qddFwd);
+  for(unsigned int i=0; i<qddFwd.rows();++i){
+    CHECK_CLOSE(qdd[i],qddFwd[i],TEST_PREC);
+  }
+
+  //pose 2
+  q[3] = M_PI*0.5;
+  InverseDynamicsConstraintsRelaxed(model,q,qd,qddDesired,cs,qdd,tau);
+  for(unsigned int i=0; i<qddDesired.rows();++i){
+    CHECK_CLOSE(qdd[i],qddDesired[i],0.01);
+  }
+
+  //Check if the result is physically consistent.
+  ForwardDynamicsConstraintsDirect(model,q,qd, tau, cs, qddFwd);
+  for(unsigned int i=0; i<qddFwd.rows();++i){
+    CHECK_CLOSE(qdd[i],qddFwd[i],TEST_PREC);
+  }
+
+  //pose 2 and some movement
+  VectorNd qd0(qd.rows());
+  qd0[0] = 0.5;
+  qd0[1] = 0.125;
+  qd0[2] = 0.25;
+  qd0[3] = 1.1;
+  VectorNd w = VectorNd::Constant(qd0.rows(),1.);
+
+
+  //Make sure that we are on the constraint manifold
+  CalcAssemblyQDot(model,q,qd0,cs,qd,w);
+
+  //Add a non-zero desired acceleration in the actuation domain
+  qddDesired[3] = 2.2;
+  InverseDynamicsConstraintsRelaxed(model,q,qd,qddDesired,cs,qdd,tau);
+  for(unsigned int i=0; i<qddDesired.rows();++i){
+    CHECK_CLOSE(qdd[i],qddDesired[i],0.01);
+  }
+
+  //Check if the result is physically consistent.
+  ForwardDynamicsConstraintsDirect(model,q,qd, tau, cs, qddFwd);
+  for(unsigned int i=0; i<qddFwd.rows();++i){
+    CHECK_CLOSE(qdd[i],qddFwd[i],TEST_PREC);
+  }
+
+
+}
+
