@@ -436,11 +436,7 @@ bool ConstraintSet::Bind (const Model &model) {
   W.Identity(model.dof_count, model.dof_count);
 
   // HouseHolderQR crashes if matrix G has more rows than columns.
-#ifdef RBDL_USE_SIMPLE_MATH
-  GT_qr = SimpleMath::HouseholderQR<Math::MatrixNd> (G.transpose());
-#else
   GT_qr = Eigen::HouseholderQR<Math::MatrixNd> (G.transpose());
-#endif
   GT_qr_Q = MatrixNd::Zero (model.dof_count, model.dof_count);
   Y = MatrixNd::Zero (model.dof_count, G.rows());
   Z = MatrixNd::Zero (model.dof_count, model.dof_count - G.rows());
@@ -674,12 +670,7 @@ void SolveConstrainedSystemDirect (
 
   switch (linear_solver) {
     case (LinearSolverPartialPivLU) :
-#ifdef RBDL_USE_SIMPLE_MATH
-      // SimpleMath does not have a LU solver so just use its QR solver
-      x = A.householderQr().solve(b);
-#else
       x = A.partialPivLu().solve(b);
-#endif
       break;
     case (LinearSolverColPivHouseholderQR) :
       x = A.colPivHouseholderQr().solve(b);
@@ -751,12 +742,7 @@ void SolveConstrainedSystemNullSpace (
   ) {
   switch (linear_solver) {
     case (LinearSolverPartialPivLU) :
-#ifdef RBDL_USE_SIMPLE_MATH
-      // SimpleMath does not have a LU solver so just use its QR solver
-      qddot_y = (G * Y).householderQr().solve (gamma);
-#else
       qddot_y = (G * Y).partialPivLu().solve (gamma);
-#endif
       break;
     case (LinearSolverColPivHouseholderQR) :
       qddot_y = (G * Y).colPivHouseholderQr().solve (gamma);
@@ -776,12 +762,7 @@ void SolveConstrainedSystemNullSpace (
 
   switch (linear_solver) {
     case (LinearSolverPartialPivLU) :
-#ifdef RBDL_USE_SIMPLE_MATH
-      // SimpleMath does not have a LU solver so just use its QR solver
-      qddot_y = (G * Y).householderQr().solve (gamma);
-#else
       lambda = (G * Y).partialPivLu().solve (Y.transpose() * (H * qddot - c));
-#endif
       break;
     case (LinearSolverColPivHouseholderQR) :
       lambda = (G*Y).colPivHouseholderQr().solve (Y.transpose()*(H*qddot - c));
@@ -1120,11 +1101,7 @@ void ForwardDynamicsConstraintsNullSpace (
   CalcConstrainedSystemVariables (model, Q, QDot, Tau, CS, f_ext);
 
   CS.GT_qr.compute (CS.G.transpose());
-#ifdef RBDL_USE_SIMPLE_MATH
-  CS.GT_qr_Q = CS.GT_qr.householderQ();
-#else
   CS.GT_qr.householderQ().evalTo (CS.GT_qr_Q);
-#endif
 
   CS.Y = CS.GT_qr_Q.block (0,0,QDot.rows(), CS.G.rows());
   CS.Z = CS.GT_qr_Q.block (0,CS.G.rows(),QDot.rows(), QDot.rows() - CS.G.rows());
@@ -1272,15 +1249,10 @@ void ForwardDynamicsApplyConstraintForces (
         SpatialVector pa = model.pA[i] + Ia * model.c[i] 
           + model.multdof3_U[i] * model.multdof3_Dinv[i] * model.multdof3_u[i];
 
-#ifdef EIGEN_CORE_H
         model.IA[lambda].noalias() += (model.X_lambda[i].toMatrixTranspose() 
             * Ia * model.X_lambda[i].toMatrix());
         model.pA[lambda].noalias() += model.X_lambda[i].applyTranspose(pa);
-#else
-        model.IA[lambda] += (model.X_lambda[i].toMatrixTranspose() 
-            * Ia * model.X_lambda[i].toMatrix());
-        model.pA[lambda] += model.X_lambda[i].applyTranspose(pa);
-#endif
+
         LOG << "pA[" << lambda << "] = " << model.pA[lambda].transpose() 
           << std::endl;
       }
@@ -1294,15 +1266,11 @@ void ForwardDynamicsApplyConstraintForces (
           - model.U[i] * (model.U[i] / model.d[i]).transpose();
         SpatialVector pa =  model.pA[i] + Ia * model.c[i] 
           + model.U[i] * model.u[i] / model.d[i];
-#ifdef EIGEN_CORE_H
+
         model.IA[lambda].noalias() += (model.X_lambda[i].toMatrixTranspose() 
             * Ia * model.X_lambda[i].toMatrix());
         model.pA[lambda].noalias() += model.X_lambda[i].applyTranspose(pa);
-#else
-        model.IA[lambda] += (model.X_lambda[i].toMatrixTranspose() 
-            * Ia * model.X_lambda[i].toMatrix());
-        model.pA[lambda] += model.X_lambda[i].applyTranspose(pa);
-#endif
+
         LOG << "pA[" << lambda << "] = " 
           << model.pA[lambda].transpose() << std::endl;
       }
@@ -1331,17 +1299,12 @@ void ForwardDynamicsApplyConstraintForces (
           + (   model.mCustomJoints[kI]->U
               * model.mCustomJoints[kI]->Dinv
               * model.mCustomJoints[kI]->u);
-#ifdef EIGEN_CORE_H
+
         model.IA[lambda].noalias() += model.X_lambda[i].toMatrixTranspose()
           * Ia * model.X_lambda[i].toMatrix();
 
         model.pA[lambda].noalias() += model.X_lambda[i].applyTranspose(pa);
-#else
-        model.IA[lambda] += model.X_lambda[i].toMatrixTranspose()
-          * Ia * model.X_lambda[i].toMatrix();
 
-        model.pA[lambda] += model.X_lambda[i].applyTranspose(pa);
-#endif
         LOG << "pA[" << lambda << "] = " << model.pA[lambda].transpose()
           << std::endl;
       }
@@ -1684,7 +1647,6 @@ void ForwardDynamicsContactsKokkevis (
   LOG << "K = " << std::endl << CS.K << std::endl;
   LOG << "a = " << std::endl << CS.a << std::endl;
 
-#ifndef RBDL_USE_SIMPLE_MATH
   switch (CS.linear_solver) {
     case (LinearSolverPartialPivLU) :
       CS.force = CS.K.partialPivLu().solve(CS.a);
@@ -1700,10 +1662,6 @@ void ForwardDynamicsContactsKokkevis (
       assert (0);
       break;
   }
-#else
-  bool solve_successful = LinSolveGaussElimPivot (CS.K, CS.a, CS.force);
-  assert (solve_successful);
-#endif
 
   LOG << "f = " << CS.force.transpose() << std::endl;
 
@@ -1741,7 +1699,6 @@ void ForwardDynamicsContactsKokkevis (
 
 //==============================================================================
 
-#ifndef RBDL_USE_SIMPLE_MATH
 RBDL_DLLAPI
 bool isConstrainedSystemFullyActuated(
     Model &model,
@@ -1779,8 +1736,6 @@ bool isConstrainedSystemFullyActuated(
   return isCompatible;
 
 }
-#endif
-#ifndef RBDL_USE_SIMPLE_MATH
 
 RBDL_DLLAPI
 void InverseDynamicsConstraints(
@@ -1866,7 +1821,6 @@ void InverseDynamicsConstraints(
 
 
 }
-#endif
 
 RBDL_DLLAPI
 void InverseDynamicsConstraintsRelaxed(
@@ -1928,11 +1882,7 @@ void InverseDynamicsConstraintsRelaxed(
   CS.GT.block( na, 0,nu, nc) = CS.P*(CS.G.transpose());
 
   CS.GT_qr.compute (CS.GT);
-#ifdef RBDL_USE_SIMPLE_MATH
-    CS.GT_qr_Q = CS.GT_qr.householderQ();
-#else
-    CS.GT_qr.householderQ().evalTo (CS.GT_qr_Q);
-#endif
+  CS.GT_qr.householderQ().evalTo (CS.GT_qr_Q);
 
   //GT = [Y  Z] * [ R ]
   //              [ 0 ]
@@ -2020,12 +1970,7 @@ void SolveLinearSystem (
   // Solve the system A*x = b.
   switch (ls) {
   case (LinearSolverPartialPivLU) :
-    #ifdef RBDL_USE_SIMPLE_MATH
-      // SimpleMath does not have a LU solver so just use its QR solver
-      x = A.householderQr().solve(b);
-    #else
-      x = A.partialPivLu().solve(b);
-    #endif
+    x = A.partialPivLu().solve(b);
     break;
   case (LinearSolverColPivHouseholderQR) :
     x = A.colPivHouseholderQr().solve(b);
