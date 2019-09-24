@@ -942,12 +942,8 @@ struct RBDL_DLLAPI ConstraintSet {
   Math::VectorNd pz;
 
   /// Workspace for the QR decomposition of the null-space method
-#ifdef RBDL_USE_SIMPLE_MATH
-  SimpleMath::HouseholderQR<Math::MatrixNd> GT_qr;
-#else
   Eigen::HouseholderQR<Math::MatrixNd> GT_qr;
   Eigen::FullPivHouseholderQR<Math::MatrixNd> GPT_full_qr;
-#endif
 
   Math::MatrixNd GT_qr_Q;
   Math::MatrixNd GPT;
@@ -1702,7 +1698,6 @@ By projecting this onto the onto the \f$S\f$ and \f$P\f$ spaces
 
 
 */
-#ifndef RBDL_USE_SIMPLE_MATH
 RBDL_DLLAPI
 void InverseDynamicsConstraints(
     Model &model,
@@ -1713,7 +1708,6 @@ void InverseDynamicsConstraints(
     Math::VectorNd &QDDotOutput,
     Math::VectorNd &TauOutput,
     std::vector<Math::SpatialVector> *f_ext  = NULL);
-#endif
 
 /**
   \brief A method to evaluate if the constrained system is fully actuated.
@@ -1736,7 +1730,6 @@ void InverseDynamicsConstraints(
  \param f_ext External forces acting on the body in base coordinates
         (optional, defaults to NULL)
 */
-#ifndef RBDL_USE_SIMPLE_MATH
 RBDL_DLLAPI 
 bool isConstrainedSystemFullyActuated(
     Model &model,
@@ -1744,7 +1737,6 @@ bool isConstrainedSystemFullyActuated(
     const Math::VectorNd &QDot,
     ConstraintSet &CS,
     std::vector<Math::SpatialVector> *f_ext  = NULL);
-#endif
 
 /** \brief Computes contact gain by constructing and solving the full lagrangian 
  *  equation
