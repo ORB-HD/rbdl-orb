@@ -324,6 +324,7 @@ bool LuaModelReadConstraintsFromTable (
               bodyId = pointSet[pi].body_id;
               bodyPoint = pointSet[pi].point_local;
             }
+            ++pi;
           }
           if(pointFound == false){
             ostringstream errormsg;
@@ -458,6 +459,7 @@ bool LuaModelReadConstraintsFromTable (
               Xp.r = localFrameSet[fi].r;
               Xp.E = localFrameSet[fi].E;
             }
+            ++fi;
           }
           if(frameFound == false){
             ostringstream errormsg;
