@@ -927,115 +927,40 @@ cdef class FixedBody:
                 for j in range (3):
                     (&(self.thisptr.mInertia.coeff(i,j)))[0] = value[i,j]
 
-#ctypedef enum JointType:
-#    JointTypeUndefined = 0
-#    JointTypeRevolute
-#    JointTypePrismatic
-#    JointTypeRevoluteX
-#    JointTypeRevoluteY
-#    JointTypeRevoluteZ
-#    JointTypeSpherical
-#    JointTypeEulerZYX
-#    JointTypeEulerXYZ
-#    JointTypeEulerYXZ
-#    JointTypeTranslationXYZ
-#    JointTypeFloatingBase
-#    JointTypeFixed
-#    JointTypeHelical
-#    JointType1DoF
-#    JointType2DoF
-#    JointType3DoF
-#    JointType4DoF
-#    JointType5DoF
-#    JointType6DoF
-#    JointTypeCustom
-
-
-class PJointType(Enum):
-    PJointTypeUndefined = 0
-    PJointTypeRevolute = 1
-    PJointTypePrismatic = 2
-    PJointTypeRevoluteX = 3
-    PJointTypeRevoluteY = 4
-    PJointTypeRevoluteZ = 5
-    PJointTypeSpherical = 6
-    PJointTypeEulerZYX = 7
-    PJointTypeEulerXYZ = 8
-    PJointTypeEulerYXZ = 9
-    PJointTypeTranslationXYZ = 10
-    PJointTypeFloatingBase = 11
-    PJointTypeFixed = 12
-    PJointTypeHelical = 13
-    PJointType1DoF = 14
-    PJointType2DoF = 15
-    PJointType3DoF = 16
-    PJointType4DoF = 17
-    PJointType5DoF = 18
-    PJointType6DoF = 19
-    PJointTypeCustom = 20
-
 
 cdef class Joint:
     cdef crbdl.Joint *thisptr
     cdef free_on_dealloc
 
-#    joint_type_map = {
-#            JointTypeUndefined: "JointTypeUndefined",
-#            JointTypeRevolute: "JointTypeRevolute",
-#            JointTypePrismatic: "JointTypePrismatic",
-#            JointTypeRevoluteX: "JointTypeRevoluteX",
-#            JointTypeRevoluteY: "JointTypeRevoluteY",
-#            JointTypeRevoluteZ: "JointTypeRevoluteZ",
-#            JointTypeSpherical: "JointTypeSpherical",
-#            JointTypeEulerZYX: "JointTypeEulerZYX",
-#            JointTypeEulerXYZ: "JointTypeEulerXYZ",
-#            JointTypeEulerYXZ: "JointTypeEulerYXZ",
-#            JointTypeTranslationXYZ: "JointTypeTranslationXYZ",
-#            JointTypeFloatingBase: "JointTypeFloatingBase",
-#            JointTypeFixed: "JointTypeFixed",
-#            JointTypeHelical: "JointTypeHelical", #1 DoF joint with both rotational and translational motion
-#            JointType1DoF: "JointType1DoF",
-#            JointType2DoF: "JointType2DoF",
-#            JointType3DoF: "JointType3DoF",
-#            JointType4DoF: "JointType4DoF",
-#            JointType5DoF: "JointType5DoF",
-#            JointType6DoF: "JointType6DoF",
-#            JointTypeCustom: "JointTypeCustom",
-#            }
-
-
     joint_type_map = {
-            PJointType.PJointTypeUndefined:       crbdl.JointTypeUndefined,
-            PJointType.PJointTypeRevolute:        crbdl.JointTypeRevolute,
-            PJointType.PJointTypePrismatic:       crbdl.JointTypePrismatic,
-            PJointType.PJointTypeRevoluteX:       crbdl.JointTypeRevoluteX,
-            PJointType.PJointTypeRevoluteY:       crbdl.JointTypeRevoluteY,
-            PJointType.PJointTypeRevoluteZ:       crbdl.JointTypeRevoluteZ,
-            PJointType.PJointTypeSpherical:       crbdl.JointTypeSpherical,
-            PJointType.PJointTypeEulerZYX:        crbdl.JointTypeEulerZYX,
-            PJointType.PJointTypeEulerXYZ:        crbdl.JointTypeEulerXYZ,
-            PJointType.PJointTypeEulerYXZ:        crbdl.JointTypeEulerYXZ,
-            PJointType.PJointTypeTranslationXYZ:  crbdl.JointTypeTranslationXYZ,
-            PJointType.PJointTypeFloatingBase:    crbdl.JointTypeFloatingBase,
-            PJointType.PJointTypeFixed:           crbdl.JointTypeFixed,
-            PJointType.PJointTypeHelical:         crbdl.JointTypeHelical, #1 DoF joint with both rotational and translational motion
-            PJointType.PJointType1DoF:            crbdl.JointType1DoF,
-            PJointType.PJointType2DoF:            crbdl.JointType2DoF,
-            PJointType.PJointType3DoF:            crbdl.JointType3DoF,
-            PJointType.PJointType4DoF:            crbdl.JointType4DoF,
-            PJointType.PJointType5DoF:            crbdl.JointType5DoF,
-            PJointType.PJointType6DoF:            crbdl.JointType6DoF,
-            PJointType.PJointTypeCustom:          crbdl.JointTypeCustom,
+             "JointTypeUndefined": crbdl.JointTypeUndefined,
+             "JointTypeRevolute": crbdl.JointTypeRevolute,
+             "JointTypePrismatic": crbdl.JointTypePrismatic,
+             "JointTypeRevoluteX": crbdl.JointTypeRevoluteX,
+             "JointTypeRevoluteY": crbdl.JointTypeRevoluteY,
+             "JointTypeRevoluteZ": crbdl.JointTypeRevoluteZ,
+             "JointTypeSpherical": crbdl.JointTypeSpherical,
+             "JointTypeEulerZYX": crbdl.JointTypeEulerZYX,
+             "JointTypeEulerXYZ": crbdl.JointTypeEulerXYZ,
+             "JointTypeEulerYXZ": crbdl.JointTypeEulerYXZ,
+             "JointTypeTranslationXYZ": crbdl.JointTypeTranslationXYZ,
+             "JointTypeFloatingBase": crbdl.JointTypeFloatingBase,
+             "JointTypeFixed": crbdl.JointTypeFixed,
+             "JointTypeHelical": crbdl.JointTypeHelical, #1 DoF joint with both rotational and translational motion
+             "JointType1DoF": crbdl.JointType1DoF,
+             "JointType2DoF": crbdl.JointType2DoF,
+             "JointType3DoF": crbdl.JointType3DoF,
+             "JointType4DoF": crbdl.JointType4DoF,
+             "JointType5DoF": crbdl.JointType5DoF,
+             "JointType6DoF": crbdl.JointType6DoF,
+             "JointTypeCustom": crbdl.JointTypeCustom
             }
 
-
     def _joint_type_from_str (self, joint_type_str):
-        if joint_type_str not in self.joint_type_map.values():
-            raise ValueError("Invalid JointType '" + str(joint_type_str) + "'!")
+        if joint_type_str not in self.joint_type_map.keys():
+            raise ValueError("Invalid JointType '" + joint_type_str + "'!")
         else:
-            for joint_type, joint_str in self.joint_type_map.iteritems():
-                if joint_str == joint_type_str:
-                    return joint_type
+            return self.joint_type_map[joint_type_str]
 
     def __cinit__(self, uintptr_t address=0, joint_type=-1, dof = -1, axes = None):
         if address == 0:
@@ -1075,16 +1000,15 @@ cdef class Joint:
                 self.thisptr = new crbdl.Joint()
               else:
                 
-               # joint_type = self._joint_type_from_str(joint_type)
-                
+                jtype = self._joint_type_from_str(joint_type)
                 
                 if dof != -1:
-                  self.thisptr = new crbdl.Joint(<crbdl.JointType> self.joint_type_map[joint_type], <int> dof)
+                  self.thisptr = new crbdl.Joint(<crbdl.JointType> jtype, <int> dof)
                 else:
-                  self.thisptr = new crbdl.Joint(<crbdl.JointType> self.joint_type_map[joint_type])
+                  self.thisptr = new crbdl.Joint(<crbdl.JointType> jtype)
                   
                   
-               # print (self._joint_type_from_str(j)oint_type) 
+               # print (self._joint_type_from_str(joint_type) 
                # self.thisptr = new crbdl.Joint(self._joint_type_from_str(joint_type))
                # joint_type = self._joint_type_from_str(joint_type)
                # self.thisptr = new crbdl.Joint(<JointType> joint_type)
