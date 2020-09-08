@@ -30,6 +30,6 @@ setup(
 	description='Python wrapper for RBDL - the Rigid Body Dynamics Library',
 	license='zlib',
 	version='${RBDL_VERSION_MAJOR}.${RBDL_VERSION_MINOR}.${RBDL_VERSION_PATCH}',
-	url='http://rbdl.bitbucket.org/',
+    url='https://rbdl.github.io/',
 	data_files = [(lib_path, libs)],
 )
