@@ -1068,8 +1068,10 @@ cdef class Joint:
 
     property mJointType:
         def __get__ (self):
-            return self.joint_type_map[self.thisptr.mJointType]
-
+            for key, joint in self.joint_type_map.items():
+                if joint == self.thisptr.mJointType:
+                    return key
+        
 # was NOT WRITABLE originally - had to be changed because of CustomJoint
     property q_index:
         def __get__ (self):
@@ -1520,15 +1522,12 @@ cdef class Model:
 
 cdef class ConstraintSet
 
-%VectorWrapperClassDefinitions(PARENT=ConstraintSet)%
 
 cdef class ConstraintSet:
     cdef crbdl.ConstraintSet *thisptr
-    %VectorWrapperMemberDefinitions (PARENT=ConstraintSet)%
 
     def __cinit__(self):
         self.thisptr = new crbdl.ConstraintSet()
-        %VectorWrapperCInitCode (PARENT=ConstraintSet)%
 
     def __dealloc__(self):
         del self.thisptr
@@ -1760,17 +1759,6 @@ cdef class ConstraintSet:
         def __get__ (self):
             return self.thisptr.bound
 
-#    %VectorWrapperAddProperty (TYPE=string, MEMBER=name, PARENT=ConstraintSet)%
-
-#    %VectorWrapperAddProperty (TYPE=Vector3d, MEMBER=point, PARENT=ConstraintSet)%
-#    %VectorWrapperAddProperty (TYPE=Vector3d, MEMBER=normal, PARENT=ConstraintSet)%
-
-#    property acceleration:
-#        def __get__(self):
-#            return VectorNd.fromPointer (<uintptr_t> &(self.thisptr.acceleration)).toNumpy()
-#        def __set__(self, values):
-#            vec = VectorNd.fromPythonArray (values)
-#            self.thisptr.acceleration = <crbdl.VectorNd> (vec.thisptr[0])
 
 ##############################
 #
@@ -1973,30 +1961,30 @@ def InverseKinematics (Model model,
           
   cdef vector[unsigned int] body_id
   cdef vector[crbdl.Vector3d] body_point
-  cdef vector[crbdl.Vector3d] target_pos	
+  cdef vector[crbdl.Vector3d] target_pos    
   cdef crbdl.Vector3d buf
   
-	
+    
   for i in range( body_ids.shape[0]):
-    body_id.push_back(<unsigned int> body_ids[i])		
+    body_id.push_back(<unsigned int> body_ids[i])        
   for i in range( body_point_position.shape[0]):
     buf = NumpyToVector3d(body_point_position[i])
-    body_point.push_back(buf)		
+    body_point.push_back(buf)        
   for i in range( target_pos_position.shape[0]):
     buf = NumpyToVector3d(target_pos_position[i])
-    target_pos.push_back(buf)						
+    target_pos.push_back(buf)                        
   
   return crbdl.InverseKinematicsPtr (model.thisptr[0],
-						<double*> qinit.data,
-						body_id,
-						body_point,
-						target_pos,
-						<double*> qres.data,
-						<double> step_tol,
-						<double> lambda_,
-						<unsigned int> max_iter
-						)
-						
+                        <double*> qinit.data,
+                        body_id,
+                        body_point,
+                        target_pos,
+                        <double*> qres.data,
+                        <double> step_tol,
+                        <double> lambda_,
+                        <unsigned int> max_iter
+                        )
+                        
 
 class ConstraintType(IntEnum):
     ConstraintTypePosition = 0
@@ -2039,7 +2027,7 @@ cdef class InverseKinematicsConstraintSet:
                 body_id,
                 NumpyToVector3d(body_point),
                 NumpyToVector3d(target_pos),
-				weight
+                weight
                 )
     
     def AddPointConstraintXY (self,
@@ -2104,8 +2092,8 @@ cdef class InverseKinematicsConstraintSet:
             NumpyToVector3d(body_point),
             NumpyToVector3d(target_pos),
             NumpyToMatrix3d(target_orientation),
-			weight
-			)
+            weight
+            )
 
     def ClearConstraints (self):
         return self.thisptr.ClearConstraints()
@@ -2238,14 +2226,14 @@ def InverseKinematicsCS (Model model,
     np.ndarray[double, ndim=1, mode="c"] qinit, 
     InverseKinematicsConstraintSet CS,
     np.ndarray[double, ndim=1, mode="c"] qres):
-          					
+                              
   
     return crbdl.InverseKinematicsCSPtr (model.thisptr[0],
         <double*> qinit.data,
-				CS.thisptr[0],
-				<double*> qres.data,
-				)
-						
+                CS.thisptr[0],
+                <double*> qres.data,
+                )
+                        
 
        
 
