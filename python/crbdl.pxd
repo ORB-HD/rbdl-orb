@@ -533,6 +533,9 @@ cdef extern from "<rbdl/Constraints.h>" namespace "RigidBodyDynamics":
         # void SetSolver (Math::LinearSolver solver)
         bool Bind (const Model &model)
 
+        void SetActuationMap(const Model& model,
+                const vector[bool]& actuatedDof);
+
         size_t size()
         void clear()
         # Math::LinearSolver
@@ -609,6 +612,36 @@ cdef extern from "rbdl_ptr_functions.h" namespace "RigidBodyDynamics":
             const double* qdot_ptr,
             const double* qddot_ptr,
             double* tau_ptr,
+            vector[SpatialVector] *f_ext
+            )
+
+    cdef void InverseDynamicsConstraintsPtr(
+            Model &model,
+            const double* q_ptr,
+            const double* qdot_ptr,
+            const double* qddot_ptr,
+            ConstraintSet &CS,
+            double* qddot_out_ptr,
+            double* tau_ptr,
+            vector[SpatialVector] *f_ext
+            )
+
+    cdef void InverseDynamicsConstraintsRelaxedPtr(
+            Model &model,
+            const double* q_ptr,
+            const double* qdot_ptr,
+            const double* qddot_ptr,
+            ConstraintSet &CS,
+            double* qddot_out_ptr,
+            double* tau_ptr,
+            vector[SpatialVector] *f_ext
+            )
+
+    cdef bool isConstrainedSystemFullyActuated(
+            Model &model,
+            const double* q_ptr,
+            const double* qdot_ptr,
+            ConstraintSet &CS,
             vector[SpatialVector] *f_ext
             )
 
