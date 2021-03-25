@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 # 
 # RBDL - Rigid Body Dynamics Library
 # Copyright (c) 2011-2015 Martin Felis <martin@fysx.org>
@@ -18,7 +18,7 @@ class JointTests (unittest.TestCase):
 
         axis = np.asarray([[1., 0., 0., 0., 0., 0.]])
         joint_rot_x = rbdl.Joint.fromJointAxes (axis)
-        joint_rot_x_type = rbdl.Joint.fromJointType (rbdl.PJointType.PJointTypeRevoluteX)
+        joint_rot_x_type = rbdl.Joint.fromJointType ("JointTypeRevoluteX")
         
         assert_equal (joint_rot_x.getJointAxis(0), axis[0])
         assert_equal (joint_rot_x_type.getJointAxis(0), axis[0])
@@ -37,7 +37,7 @@ class JointTests (unittest.TestCase):
             ])
             
         joint = rbdl.Joint.fromJointAxes (axis)
-        joint2 = rbdl.Joint.fromJointType (rbdl.PJointType.PJointTypeFloatingBase)
+        joint2 = rbdl.Joint.fromJointType ("JointTypeFloatingBase")
 
         
         for i in range (axis.shape[0]):
@@ -53,7 +53,7 @@ class SampleModel3R (unittest.TestCase):
     def setUp(self):
       
         self.model = rbdl.Model()
-        joint_rot_y = rbdl.Joint.fromJointType (rbdl.PJointType.PJointTypeRevoluteY)
+        joint_rot_y = rbdl.Joint.fromJointType ("JointTypeRevoluteY")
         self.body = rbdl.Body.fromMassComInertia (1., np.array([0., 0.0, 0.5]), np.eye(3) *
                 0.05)
         self.xtrans = rbdl.SpatialTransform()
@@ -67,6 +67,31 @@ class SampleModel3R (unittest.TestCase):
         self.qdot = np.zeros (self.model.qdot_size)
         self.qddot = np.zeros (self.model.qdot_size)
         self.tau = np.zeros (self.model.qdot_size)
+
+    def test_AccessToModelParameters (self):
+        """
+        Checks whether vital model parameters can be accessed that are 
+        stored in the "Model" class.
+        """    
+        rbdl.UpdateKinematics (self.model, self.q, self.qdot, self.qddot)
+        
+        assert_equal (self.model.mBodies[2].mMass, self.body.mMass)
+        assert_equal (self.model.mBodies[2].mCenterOfMass, 
+                                        self.body.mCenterOfMass)
+        assert_equal (self.model.mBodies[2].mInertia, 
+                                        self.body.mInertia )
+                                        
+        assert_equal (self.model.X_T[1].E, rbdl.SpatialTransform().E )
+        assert_equal (self.model.X_T[1].r, rbdl.SpatialTransform().r )
+        assert_equal (self.model.X_T[2].E, self.xtrans.E )
+        assert_equal (self.model.X_T[2].r, self.xtrans.r )
+        
+        assert_almost_equal (self.model.X_base[0].E, np.identity(3) )
+        assert_almost_equal (self.model.X_base[3].r, 
+                                        self.xtrans.r + self.xtrans.r )
+        
+        assert_equal (self.model.mJoints[2].mJointType, 
+                                                "JointTypeRevoluteY")
 
     def test_CoordinateTransformBodyBase (self):
         """
@@ -328,7 +353,7 @@ class SampleModel3R (unittest.TestCase):
         with CalcPointVelocity. """
 
         self.model = rbdl.Model()
-        joint_trans_xyz = rbdl.Joint.fromJointType (rbdl.PJointType.PJointTypeTranslationXYZ)
+        joint_trans_xyz = rbdl.Joint.fromJointType ("JointTypeTranslationXYZ")
 
         self.body_1 = self.model.AppendBody (rbdl.SpatialTransform(),
                 joint_trans_xyz, self.body)
@@ -405,13 +430,14 @@ class SampleModel3R (unittest.TestCase):
         assert_almost_equal (target_positions[0], res_point2)
         assert_almost_equal (ori_matrix, res_ori)
 
+
 class FloatingBaseModel (unittest.TestCase):
     """ Model with a floating base
     """
     def setUp(self):
       
         self.model = rbdl.Model()
-        joint_rot_y = rbdl.Joint.fromJointType (rbdl.PJointType.PJointTypeFloatingBase)
+        joint_rot_y = rbdl.Joint.fromJointType ("JointTypeFloatingBase")
         self.body = rbdl.Body.fromMassComInertia (1., np.array([0., 0.0, 0.5]), np.eye(3) *
                 0.05)
         self.xtrans = rbdl.SpatialTransform()
@@ -763,7 +789,6 @@ class ConstraintSetTests (unittest.TestCase):
         assert_equal(0,gId)
         gId = self.cs.getGroupIndexByAssignedId(0)
         assert_equal(0,gId)
-
         gId = self.cs.getGroupIndexByName("LoopLink1Link2")
         assert_equal(1,gId)
         gId = self.cs.getGroupIndexById(11)
@@ -807,11 +832,11 @@ class ConstraintSetTests (unittest.TestCase):
         gId1 = 1
 
         csListBodyIds = np.ndarray([2], dtype=np.uintc )
-        csListX = np.ndarray([6,6,2],dtype=np.float)
-        csListF = np.ndarray([6,2],dtype=np.float)
+        csListX = np.ndarray([6,6,2],dtype=float)
+        csListF = np.ndarray([6,2],dtype=float)
 
-        csListXTest = np.ndarray([6,6,2],dtype=np.float)
-        csListFTest = np.ndarray([6,2],dtype=np.float)
+        csListXTest = np.ndarray([6,6,2],dtype=float)
+        csListFTest = np.ndarray([6,2],dtype=float)
 
         csListXTest.fill(0.)
         csListFTest.fill(0.)
@@ -838,8 +863,8 @@ class ConstraintSetTests (unittest.TestCase):
         assert_almost_equal(csListF, csListFTest) 
 
         csListBodyIds = np.ndarray([2], dtype=np.uintc )
-        csListX = np.ndarray([6,6,2],dtype=np.float)
-        csListF = np.ndarray([6,2],dtype=np.float)
+        csListX = np.ndarray([6,6,2],dtype=float)
+        csListF = np.ndarray([6,2],dtype=float)
 
         self.cs.calcForces( gId1,self.model,self.q,self.qd,
                             csListBodyIds,csListX,csListF,False,False)
@@ -883,8 +908,8 @@ class ConstraintSetTests (unittest.TestCase):
 
         self.q[0] = 1.0
 
-        posErr = np.ndarray([5],dtype=np.float)
-        posErrTest=np.ndarray([5],dtype=np.float)
+        posErr = np.ndarray([5],dtype=float)
+        posErrTest=np.ndarray([5],dtype=float)
 
         self.cs.calcPositionError(0,self.model,self.q,posErr,True)
 
@@ -904,8 +929,8 @@ class ConstraintSetTests (unittest.TestCase):
         self.qd[0] = -1.0
         self.qd[6] = -1.0
 
-        velErr = np.ndarray([5],dtype=np.float)
-        velErrTest=np.ndarray([5],dtype=np.float)
+        velErr = np.ndarray([5],dtype=float)
+        velErrTest=np.ndarray([5],dtype=float)
 
         self.cs.calcVelocityError(0,self.model,self.q,self.qd,velErr,True)
 
@@ -922,10 +947,10 @@ class ConstraintSetTests (unittest.TestCase):
         self.cs.disableBaumgarteStabilization(0)
         assert_equal(self.cs.isBaumgarteStabilizationEnabled(0), False)
 
-        bgCoeff=np.ndarray([2],dtype=np.float)
+        bgCoeff=np.ndarray([2],dtype=float)
         self.cs.getBaumgarteStabilizationCoefficients(0, bgCoeff)
 
-        bgCoeffTest=np.ndarray([2],dtype=np.float)
+        bgCoeffTest=np.ndarray([2],dtype=float)
         bgCoeffTest[0]=10.
         bgCoeffTest[1]=10.
         assert_almost_equal(bgCoeff,bgCoeffTest)
@@ -940,11 +965,11 @@ class ConstraintSetTests (unittest.TestCase):
         self.q[0] = 1.
         self.qd[1] = 2.
         
-        bgStabForceTest=np.ndarray([5],dtype=np.float)
-        bgStabForce=np.ndarray([5],dtype=np.float)
+        bgStabForceTest=np.ndarray([5],dtype=float)
+        bgStabForce=np.ndarray([5],dtype=float)
 
-        posErr = np.ndarray([5],dtype=np.float)
-        velErr = np.ndarray([5],dtype=np.float)
+        posErr = np.ndarray([5],dtype=float)
+        velErr = np.ndarray([5],dtype=float)
         self.cs.calcPositionError(0,self.model,self.q,posErr,True)
         self.cs.calcVelocityError(0,self.model,self.q,self.qd,velErr,True)
         self.cs.calcBaumgarteStabilizationForces(0,self.model,posErr,velErr,bgStabForce)
