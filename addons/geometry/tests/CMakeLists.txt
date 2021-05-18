@@ -11,12 +11,8 @@ SET ( RBDL_ADDON_GEOMETRY_TESTS_VERSION
 
 PROJECT (RBDL_GEOMETRY_TESTS VERSION ${RBDL_ADDON_GEOMETRY_TESTS_VERSION})
 
-# Needed for UnitTest++
-LIST( APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/../CMake )
-
-# Look for unittest++
-FIND_PACKAGE (UnitTest++ REQUIRED)
-INCLUDE_DIRECTORIES (${UNITTEST++_INCLUDE_DIR})
+# Look for catch2
+FIND_PACKAGE(Catch2 REQUIRED)
 
 SET ( GEOMETRY_TESTS_SRCS
 	testSmoothSegmentedFunction.cc
@@ -30,6 +26,13 @@ SET ( GEOMETRY_TESTS_SRCS
 	)
 
 INCLUDE_DIRECTORIES ( ../ )
+INCLUDE_DIRECTORIES (${CMAKE_SOURCE_DIR}/tests)
+# on unix systems add /usr/local/include to include dirs
+# this was added since macos homebrew installs many things there but macos
+# does not automatically search their, and on linux systems this does not hurt
+IF (NOT WIN32)
+  INCLUDE_DIRECTORIES(/usr/local/include)
+ENDIF (NOT WIN32)
 
 
 SET_TARGET_PROPERTIES ( ${PROJECT_EXECUTABLES} PROPERTIES
@@ -40,7 +43,7 @@ ADD_EXECUTABLE ( rbdl_geometry_tests ${GEOMETRY_TESTS_SRCS} )
 
 SET_TARGET_PROPERTIES ( rbdl_geometry_tests PROPERTIES
 	LINKER_LANGUAGE CXX
-	OUTPUT_NAME runGeometryTests
+	OUTPUT_NAME geometry_tests
 	)
 
 SET (RBDL_LIBRARY rbdl)
@@ -58,7 +61,7 @@ OPTION (RUN_AUTOMATIC_TESTS "Perform automatic tests after compilation?" OFF)
 IF (RUN_AUTOMATIC_TESTS)
 ADD_CUSTOM_COMMAND (TARGET rbdl_geometry_tests
 	POST_BUILD
-	COMMAND ./runGeometryTests
+	COMMAND ./geometry_tests
 	COMMENT "Running automated addon geometry tests..."
 	)
 ENDIF (RUN_AUTOMATIC_TESTS)

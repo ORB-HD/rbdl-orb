@@ -14,21 +14,22 @@ SET ( RBDL_ADDON_MUSCLE_TESTS_VERSION
 
 PROJECT (RBDL_MUSCLE_TESTS VERSION ${RBDL_ADDON_MUSCLE_TESTS_VERSION})
 
-# Needed for UnitTest++
-LIST( APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/../CMake )
+# Look for catch2
+FIND_PACKAGE(Catch2 REQUIRED)
+# on unix systems add /usr/local/include to include dirs
+# this was added since macos homebrew installs many things there but macos
+# does not automatically search their, and on linux systems this does not hurt
+IF (NOT WIN32)
+  INCLUDE_DIRECTORIES(/usr/local/include)
+ENDIF (NOT WIN32)
 
-# Look for unittest++
-FIND_PACKAGE (UnitTest++ REQUIRED)
+INCLUDE_DIRECTORIES (${CMAKE_SOURCE_DIR}/tests)
 
 IF (RBDL_BUILD_ADDON_MUSCLE_FITTING)
-  INCLUDE_DIRECTORIES (${UNITTEST++_INCLUDE_DIR}
-                       ${IPOPT_INCLUDE_DIR})
-ELSE (RBDL_BUILD_ADDON_MUSCLE_FITTING)
-  INCLUDE_DIRECTORIES (${UNITTEST++_INCLUDE_DIR})  
+  INCLUDE_DIRECTORIES (${IPOPT_INCLUDE_DIR})
 ENDIF (RBDL_BUILD_ADDON_MUSCLE_FITTING)
 
 IF (RBDL_BUILD_ADDON_MUSCLE_FITTING)
-
   SET ( MUSCLE_TESTS_SRCS
     testMillard2016TorqueMuscle.cc
     testMuscleFunctionFactory.cc
@@ -91,7 +92,7 @@ ADD_EXECUTABLE ( rbdl_muscle_tests ${MUSCLE_TESTS_SRCS} )
 
 SET_TARGET_PROPERTIES ( rbdl_muscle_tests PROPERTIES
   LINKER_LANGUAGE CXX
-  OUTPUT_NAME runMuscleTests
+  OUTPUT_NAME muscle_tests
   )
 
 SET (RBDL_LIBRARY rbdl)
@@ -101,14 +102,12 @@ ENDIF (RBDL_BUILD_STATIC)
 
 IF (RBDL_BUILD_ADDON_MUSCLE_FITTING)
 TARGET_LINK_LIBRARIES ( rbdl_muscle_tests
-  ${UNITTEST++_LIBRARY}
   ${RBDL_LIBRARY}
   ${IPOPT_LIBRARY}
   )
 
 ELSE (RBDL_BUILD_ADDON_MUSCLE_FITTING)
 TARGET_LINK_LIBRARIES ( rbdl_muscle_tests
-  ${UNITTEST++_LIBRARY}
   ${RBDL_LIBRARY}
 )
 ENDIF (RBDL_BUILD_ADDON_MUSCLE_FITTING)  
@@ -117,7 +116,7 @@ OPTION (RUN_AUTOMATIC_TESTS "Perform automatic tests after compilation?" OFF)
 IF (RUN_AUTOMATIC_TESTS)
 ADD_CUSTOM_COMMAND (TARGET rbdl_muscle_tests
   POST_BUILD
-  COMMAND ./runMuscleTests
+  COMMAND ./muscle_tests
   COMMENT "Running automated addon muscle tests..."
   )
 ENDIF (RUN_AUTOMATIC_TESTS)
