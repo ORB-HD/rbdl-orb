@@ -11,16 +11,19 @@ SET ( RBDL_LUAMODEL_TESTS_VERSION
 
 PROJECT (RBDL_LUAMODEL_TESTS VERSION ${RBDL_LUAMODEL_TESTS_VERSION})
 
-# Needed for UnitTest++
-LIST( APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/../CMake )
-
-# Look for unittest++
-FIND_PACKAGE (UnitTest++ REQUIRED)
+# Look for catch2
+FIND_PACKAGE(Catch2 REQUIRED)
 FIND_PACKAGE (Lua51 REQUIRED)
 INCLUDE_DIRECTORIES (${CMAKE_CURRENT_BINARY_DIR}/include
-                     ${UNITTEST++_INCLUDE_DIR}
                      ${LUA_INCLUDE_DIR}
+                     ${CMAKE_SOURCE_DIR}/tests
                      ../)
+# on unix systems add /usr/local/include to include dirs
+# this was added since macos homebrew installs many things there but macos
+# does not automatically search their, and on linux systems this does not hurt
+IF (NOT WIN32)
+  INCLUDE_DIRECTORIES(/usr/local/include)
+ENDIF (NOT WIN32)
 
 SET ( LUAMODEL_TESTS_SRCS
 	testLuaModel.cc
@@ -30,7 +33,11 @@ SET ( LUAMODEL_TESTS_SRCS
 	../luatables.cc
 	)
 
-
+IF ( ${CMAKE_VERSION} VERSION_LESS 3.12.0 )
+  ADD_DEFINITIONS (-DRBDL_LUAMODEL_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/..")
+ELSE( ${CMAKE_VERSION} VERSION_LESS 3.12.0 )
+  ADD_COMPILE_DEFINITIONS (RBDL_LUAMODEL_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/..")
+ENDIF( ${CMAKE_VERSION} VERSION_LESS 3.12.0 )
 
 SET_TARGET_PROPERTIES ( ${PROJECT_EXECUTABLES} PROPERTIES
   LINKER_LANGUAGE CXX
@@ -40,7 +47,7 @@ ADD_EXECUTABLE ( rbdl_luamodel_tests ${LUAMODEL_TESTS_SRCS} )
 
 SET_TARGET_PROPERTIES ( rbdl_luamodel_tests PROPERTIES
 	LINKER_LANGUAGE CXX
-	OUTPUT_NAME runLuaModelTests
+	OUTPUT_NAME luamodel_tests
 	)
 
 SET (RBDL_LIBRARY rbdl)
@@ -56,14 +63,12 @@ ENDIF (RBDL_BUILD_STATIC)
 
 IF(RBDL_BUILD_ADDON_MUSCLE)
 	TARGET_LINK_LIBRARIES ( rbdl_luamodel_tests
-			${UNITTEST++_LIBRARY}
 			${MUSCLE_ADDON_LIBRARY}
 			${RBDL_LIBRARY}
 			${LUA_LIBRARIES}
 		)
 ELSE(RBDL_BUILD_ADDON_MUSCLE)
 	TARGET_LINK_LIBRARIES ( rbdl_luamodel_tests
-			${UNITTEST++_LIBRARY}
 			${RBDL_LIBRARY}
 			${LUA_LIBRARIES}
 		)
@@ -71,15 +76,11 @@ ENDIF(RBDL_BUILD_ADDON_MUSCLE)
 	
 OPTION (RUN_AUTOMATIC_TESTS "Perform automatic tests after compilation?" OFF)
 
-
-
 IF (RUN_AUTOMATIC_TESTS)
-
-GET_FILENAME_COMPONENT(MODEL_DIR "${PROJECT_SOURCE_DIR}/.." ABSOLUTE)
 
 ADD_CUSTOM_COMMAND (TARGET rbdl_luamodel_tests
 	POST_BUILD
-	COMMAND ./runLuaModelTests ARGS ${MODEL_DIR}
+	COMMAND ./luamodel_tests
 	COMMENT "Running automated addon luamodel tests..."
 	)
 ENDIF (RUN_AUTOMATIC_TESTS)
