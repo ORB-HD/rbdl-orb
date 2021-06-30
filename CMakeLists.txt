@@ -44,12 +44,12 @@ ENDIF (NOT EIGEN3_FOUND)
 
 INCLUDE_DIRECTORIES (${EIGEN3_INCLUDE_DIR})
 
-# Options
-SET (RBDL_BUILD_STATIC_DEFAULT OFF)
 IF (MSVC)
-  SET (RBDL_BUILD_STATIC_DEFAULT ON)
+  SET (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj /permissive- /std:c++17")
 ENDIF (MSVC)
 
+# Options
+SET (RBDL_BUILD_STATIC_DEFAULT OFF)
 OPTION (RBDL_BUILD_STATIC "Build statically linked library (otherwise dynamiclly linked)" ${RBDL_BUILD_STATIC_DEFAULT})
 OPTION (RBDL_BUILD_TESTS "Build the test executables" OFF)
 OPTION (RBDL_ENABLE_LOGGING "Enable logging (warning: major impact on performance!)" OFF)
@@ -124,9 +124,9 @@ SET ( RBDL_SOURCES
 	src/Kinematics.cc
 	)
 
-IF (MSVC AND NOT RBDL_BUILD_STATIC)	
-  MESSAGE (FATAL_ERROR, "Compiling RBDL as a DLL currently not supported. Please enable RBDL_BUILD_STATIC.")
-ENDIF (MSVC AND NOT RBDL_BUILD_STATIC)	
+#IF (MSVC AND NOT RBDL_BUILD_STATIC)
+#  MESSAGE (FATAL_ERROR, "Compiling RBDL as a DLL currently not supported. Please enable RBDL_BUILD_STATIC.")
+#ENDIF (MSVC AND NOT RBDL_BUILD_STATIC)
 	
 # Static / dynamic builds
 IF (RBDL_BUILD_STATIC)
