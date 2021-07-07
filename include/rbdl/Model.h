@@ -25,9 +25,11 @@
 // as members need to have a special allocater. This can be achieved with
 // the following macro.
 
+#ifndef RBDL_USE_CASADI_MATH
 EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION(RigidBodyDynamics::Joint)
 EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION(RigidBodyDynamics::Body)
 EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION(RigidBodyDynamics::FixedBody)
+#endif
 
 /** \brief Namespace for all structures of the RigidBodyDynamics library
 */
