@@ -61,6 +61,7 @@ OPTION (RBDL_BUILD_PYTHON_WRAPPER "Build experimental python wrapper" OFF)
 OPTION (RBDL_BUILD_ADDON_GEOMETRY "Build the geometry library" OFF)
 OPTION (RBDL_BUILD_ADDON_MUSCLE "Build the muscle library" OFF)
 OPTION (RBDL_BUILD_ADDON_MUSCLE_FITTING "Build muscle library fitting functions (requires Ipopt)" OFF)
+OPTION (RBDL_BUILD_EXECUTABLES "Build addon executables, disable this if you only want to build the libraries." ON)
 OPTION (RBDL_USE_PYTHON_2 "Use python 2 instead of python 3" OFF)
 
 SET (RBDL_BUILD_COMPILER_ID ${CMAKE_CXX_COMPILER_ID})
