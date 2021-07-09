@@ -11,6 +11,7 @@
 #include "rbdl/rbdl_config.h"
 
 #include <Eigen/Dense>
+#include <Eigen/Core>
 #include <Eigen/StdVector>
 #include <Eigen/QR>
 

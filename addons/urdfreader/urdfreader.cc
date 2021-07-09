@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <map>
 #include <stack>
 
@@ -335,8 +336,9 @@ void construct_model(Model *rbdl_model, ModelPtr urdf_model,
 }
 // =============================================================================
 
-RBDL_DLLAPI bool URDFReadFromFile(const char *filename, Model *model,
-                                    bool floating_base, bool verbose) {
+RBDL_ADDON_DLLAPI bool URDFReadFromFile(const char *filename, Model *model,
+                                        bool floating_base, bool verbose)
+{
   ifstream model_file(filename);
   if (!model_file) {
     cerr << "Error opening file '" << filename << "'." << endl;
@@ -359,9 +361,11 @@ RBDL_DLLAPI bool URDFReadFromFile(const char *filename, Model *model,
 
 // =============================================================================
 
-  RBDL_DLLAPI bool URDFReadFromString(const char *model_xml_string, Model *model,
-                                      bool floating_base, bool verbose)
-  {
+RBDL_ADDON_DLLAPI bool URDFReadFromString(const char *model_xml_string,
+                                          Model *model,
+                                          bool floating_base,
+                                          bool verbose)
+{
     assert(model);
 
 #ifdef RBDL_USE_ROS_URDF_LIBRARY
