@@ -23,7 +23,6 @@
 #cmakedefine RBDL_BUILD_STATIC
 #cmakedefine RBDL_USE_ROS_URDF_LIBRARY
 
-
 /* compatibility defines */
 #ifdef _WIN32
 #define __func__ __FUNCTION__
