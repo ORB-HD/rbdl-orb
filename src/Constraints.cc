@@ -90,10 +90,9 @@ unsigned int ConstraintSet::AddContactConstraint (
 
   if(constraintAppended == false) {
 
-    ContactConstraint con = ContactConstraint(body_id,body_point, world_normal,
-                            constraint_name,userDefinedId);
-
-    contactConstraints.push_back(std::make_shared<ContactConstraint>(con));
+    contactConstraints.push_back(
+                std::shared_ptr<ContactConstraint>(
+                    new ContactConstraint(body_id,body_point, world_normal, constraint_name,userDefinedId)));
     unsigned int idx = unsigned(contactConstraints.size()-1);
     contactConstraints[idx]->addToConstraintSet(insertAtRowInG);
     constraints.emplace_back(contactConstraints[idx]);
@@ -226,15 +225,12 @@ unsigned int ConstraintSet::AddLoopConstraint (
 
   if(constraintAppended==false) {
 
-    LoopConstraint loopCon( idPredecessor, idSuccessor,
-                            XPredecessor,  XSuccessor,
-                            constraintAxisInPredecessor,
-                            enableBaumgarteStabilization,
-                            stabilizationTimeConstant,
-                            constraintName,
-                            userDefinedId);
-
-    loopConstraints.push_back(std::make_shared<LoopConstraint>(loopCon));
+    loopConstraints.push_back(
+                std::shared_ptr<LoopConstraint>(
+                    new LoopConstraint(
+                        idPredecessor, idSuccessor,XPredecessor, XSuccessor,
+                        constraintAxisInPredecessor, enableBaumgarteStabilization,
+                        stabilizationTimeConstant,constraintName,userDefinedId)));
     idx = unsigned(loopConstraints.size()-1);
     loopConstraints[idx]->addToConstraintSet(insertAtRowInG);
     constraints.emplace_back(loopConstraints[idx]);

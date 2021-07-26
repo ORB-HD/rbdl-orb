@@ -24,7 +24,6 @@
 #cmakedefine RBDL_BUILD_STATIC
 #cmakedefine RBDL_USE_ROS_URDF_LIBRARY
 
-
 /* compatibility defines */
 #ifdef _WIN32
 #define __func__ __FUNCTION__
@@ -67,10 +66,14 @@
 // extra information.
 #  define RBDL_DLLAPI
 #  define RBDL_LOCAL
+#  define RBDL_ADDON_DLLAPI
 # else
 // Depending on whether one is building or using the
 // library define DLLAPI to import or export.
 #  ifdef rbdl_EXPORTS
+#   define RBDL_DLLAPI RBDL_DLLEXPORT
+#   define RBDL_ADDON_DLLAPI RBDL_DLLIMPORT
+#  elif rbdl_casadi_EXPORTS
 #   define RBDL_DLLAPI RBDL_DLLEXPORT
 #   define RBDL_ADDON_DLLAPI RBDL_DLLIMPORT
 #  elif rbdl_urdfreader_EXPORTS
