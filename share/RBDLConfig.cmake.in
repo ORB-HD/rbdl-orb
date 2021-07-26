@@ -4,7 +4,11 @@ IF(CUSTOM_RBDL_PATH)
 
   FIND_PATH (RBDL_INCLUDE_DIR rbdl/rbdl.h
     PATHS
+<<<<<<< HEAD
     ${CUSTOM_RBDL_PATH}/include
+=======
+    ${CUSTOM_RBDL_PATH}/include/rbdl
+>>>>>>> 2f50049f5d4ace3e029ab1451dc90bfe26e78bde
     NO_DEFAULT_PATH
     )
 
@@ -16,7 +20,11 @@ IF(CUSTOM_RBDL_PATH)
 
   FIND_PATH (RBDL_LUAMODEL_INCLUDE_DIR rbdl/addons/luamodel/luamodel.h
     PATHS
+<<<<<<< HEAD
     ${CUSTOM_RBDL_PATH}/include
+=======
+    ${CUSTOM_RBDL_PATH}/include/rbdl
+>>>>>>> 2f50049f5d4ace3e029ab1451dc90bfe26e78bde
     NO_DEFAULT_PATH
     )
 
@@ -28,7 +36,11 @@ IF(CUSTOM_RBDL_PATH)
 
   FIND_PATH (RBDL_URDFREADER_INCLUDE_DIR rbdl/addons/urdfreader/urdfreader.h
     PATHS
+<<<<<<< HEAD
     ${CUSTOM_RBDL_PATH}/include
+=======
+    ${CUSTOM_RBDL_PATH}/include/rbdl
+>>>>>>> 2f50049f5d4ace3e029ab1451dc90bfe26e78bde
     NO_DEFAULT_PATH
     )
 
@@ -42,7 +54,11 @@ IF(CUSTOM_RBDL_PATH)
 
   FIND_PATH (RBDL_MUSCLE_INCLUDE_DIR rbdl/addons/muscle/muscle.h
     PATHS
+<<<<<<< HEAD
     ${CUSTOM_RBDL_PATH}/include
+=======
+    ${CUSTOM_RBDL_PATH}/include/rbdl
+>>>>>>> 2f50049f5d4ace3e029ab1451dc90bfe26e78bde
     NO_DEFAULT_PATH
     )
 
@@ -55,7 +71,11 @@ IF(CUSTOM_RBDL_PATH)
 
   FIND_PATH (RBDL_GEOMETRY_INCLUDE_DIR rbdl/addons/geometry/geometry.h
     PATHS
+<<<<<<< HEAD
     ${CUSTOM_RBDL_PATH}/include
+=======
+    ${CUSTOM_RBDL_PATH}/include/rbdl
+>>>>>>> 2f50049f5d4ace3e029ab1451dc90bfe26e78bde
     NO_DEFAULT_PATH
     )
 
@@ -72,8 +92,17 @@ ELSE(CUSTOM_RBDL_PATH)
     $ENV{RBDL_PATH}/src
     $ENV{RBDL_PATH}/include
     $ENV{RBDL_INCLUDE_PATH}
+<<<<<<< HEAD
     /usr/local/include
     /usr/include
+=======
+    ${CMAKE_INSTALL_PREFIX}/include/rbdl
+    ${CMAKE_INSTALL_PREFIX}/Library/include/rbdl
+    /usr/local/include
+    /usr/include
+    /usr/include/rbdl
+    /usr/local/include/rbdl
+>>>>>>> 2f50049f5d4ace3e029ab1451dc90bfe26e78bde
     )
 
   FIND_LIBRARY (RBDL_LIBRARY rbdl
@@ -82,6 +111,11 @@ ELSE(CUSTOM_RBDL_PATH)
     $ENV{HOME}/local/lib/x86_64-linux-gnu
     $ENV{RBDL_PATH}/lib
     $ENV{RBDL_LIBRARY_PATH}
+<<<<<<< HEAD
+=======
+    ${CMAKE_INSTALL_PREFIX}/lib
+    ${CMAKE_INSTALL_PREFIX}/Library/lib
+>>>>>>> 2f50049f5d4ace3e029ab1451dc90bfe26e78bde
     /usr/local/lib
     /usr/local/lib/x86_64-linux-gnu
     /usr/lib
@@ -94,6 +128,13 @@ ELSE(CUSTOM_RBDL_PATH)
     $ENV{RBDL_PATH}/src
     $ENV{RBDL_PATH}/include
     $ENV{RBDL_INCLUDE_PATH}
+<<<<<<< HEAD
+=======
+    ${CMAKE_INSTALL_PREFIX}/include/rbdl
+    ${CMAKE_INSTALL_PREFIX}/Library/include/rbdl
+    /usr/include/rbdl
+    /usr/local/include/rbdl
+>>>>>>> 2f50049f5d4ace3e029ab1451dc90bfe26e78bde
     /usr/local/include
     /usr/include
     )
@@ -104,6 +145,11 @@ ELSE(CUSTOM_RBDL_PATH)
     $ENV{HOME}/local/lib/x86_64-linux-gnu
     $ENV{RBDL_PATH}
     $ENV{RBDL_LIBRARY_PATH}
+<<<<<<< HEAD
+=======
+    ${CMAKE_INSTALL_PREFIX}/lib
+    ${CMAKE_INSTALL_PREFIX}/Library/lib
+>>>>>>> 2f50049f5d4ace3e029ab1451dc90bfe26e78bde
     /usr/local/lib
     /usr/local/lib/x86_64-linux-gnu
     /usr/lib
@@ -116,8 +162,17 @@ ELSE(CUSTOM_RBDL_PATH)
     $ENV{RBDL_PATH}/src
     $ENV{RBDL_PATH}/include
     $ENV{RBDL_INCLUDE_PATH}
+<<<<<<< HEAD
     /usr/local/include
     /usr/include
+=======
+    ${CMAKE_INSTALL_PREFIX}/include/rbdl
+    ${CMAKE_INSTALL_PREFIX}/Library/include/rbdl
+    /usr/local/include
+    /usr/local/include/rbdl
+    /usr/include
+    /usr/include/rbdl
+>>>>>>> 2f50049f5d4ace3e029ab1451dc90bfe26e78bde
     )
 
   FIND_LIBRARY (RBDL_URDFREADER_LIBRARY rbdl_urdfreader
@@ -126,6 +181,11 @@ ELSE(CUSTOM_RBDL_PATH)
     $ENV{HOME}/local/lib/x86_64-linux-gnu
     $ENV{RBDL_PATH}
     $ENV{RBDL_LIBRARY_PATH}
+<<<<<<< HEAD
+=======
+    ${CMAKE_INSTALL_PREFIX}/lib
+    ${CMAKE_INSTALL_PREFIX}/Library/lib
+>>>>>>> 2f50049f5d4ace3e029ab1451dc90bfe26e78bde
     /usr/local/lib
     /usr/local/lib/x86_64-linux-gnu
     /usr/lib
@@ -139,8 +199,17 @@ ELSE(CUSTOM_RBDL_PATH)
     $ENV{RBDL_PATH}/src
     $ENV{RBDL_PATH}/include
     $ENV{RBDL_INCLUDE_PATH}
+<<<<<<< HEAD
     /usr/local/include
     /usr/include
+=======
+    ${CMAKE_INSTALL_PREFIX}/include/rbdl
+    ${CMAKE_INSTALL_PREFIX}/Library/include/rbdl
+    /usr/local/include
+    /usr/local/include/rbdl
+    /usr/include
+    /usr/include/rbdl
+>>>>>>> 2f50049f5d4ace3e029ab1451dc90bfe26e78bde
     )
 
   FIND_LIBRARY (RBDL_MUSCLE_LIBRARY rbdl_muscle
@@ -149,6 +218,11 @@ ELSE(CUSTOM_RBDL_PATH)
     $ENV{HOME}/local/lib/x86_64-linux-gnu
     $ENV{RBDL_PATH}
     $ENV{RBDL_LIBRARY_PATH}
+<<<<<<< HEAD
+=======
+    ${CMAKE_INSTALL_PREFIX}/lib
+    ${CMAKE_INSTALL_PREFIX}/Library/lib
+>>>>>>> 2f50049f5d4ace3e029ab1451dc90bfe26e78bde
     /usr/local/lib
     /usr/local/lib/x86_64-linux-gnu
     /usr/lib
@@ -161,8 +235,17 @@ ELSE(CUSTOM_RBDL_PATH)
     $ENV{RBDL_PATH}/src
     $ENV{RBDL_PATH}/include
     $ENV{RBDL_INCLUDE_PATH}
+<<<<<<< HEAD
     /usr/local/include
     /usr/include
+=======
+    ${CMAKE_INSTALL_PREFIX}/include/rbdl
+    ${CMAKE_INSTALL_PREFIX}/Library/include/rbdl
+    /usr/local/include
+    /usr/local/include/rbdl
+    /usr/include
+    /usr/include/rbdl
+>>>>>>> 2f50049f5d4ace3e029ab1451dc90bfe26e78bde
     )
 
   FIND_LIBRARY (RBDL_GEOMETRY_LIBRARY rbdl_geometry
@@ -171,6 +254,11 @@ ELSE(CUSTOM_RBDL_PATH)
     $ENV{HOME}/local/lib/x86_64-linux-gnu
     $ENV{RBDL_PATH}
     $ENV{RBDL_LIBRARY_PATH}
+<<<<<<< HEAD
+=======
+    ${CMAKE_INSTALL_PREFIX}/lib
+    ${CMAKE_INSTALL_PREFIX}/Library/lib
+>>>>>>> 2f50049f5d4ace3e029ab1451dc90bfe26e78bde
     /usr/local/lib
     /usr/local/lib/x86_64-linux-gnu
     /usr/lib
