@@ -676,7 +676,8 @@ INPUT                  = ./src \
                          addons/muscle/MuscleFunctionFactory.h \
                          addons/muscle/TorqueMuscleFunctionFactory.h \                         
                          addons/muscle/TorqueMuscleFittingToolkit.h \                         
-                         ./include/rbdl
+                         ./include/rbdl \
+                         casadi/info.h
 
 # This tag can be used to specify the character encoding of the source files 
 # that doxygen parses. Internally doxygen uses the UTF-8 encoding, which is 
@@ -772,6 +773,7 @@ EXAMPLE_PATH           = doc \
                          examples/luamodel \
                          examples/simple \
                          examples/python \
+                         examples
 
 
 # If the value of the EXAMPLE_PATH tag contains directories, you can use the 
