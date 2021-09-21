@@ -1070,6 +1070,8 @@ void CalcConstraintsVelocityError(
   * \param QDot the generalized velocities of the joints
   * \param Tau the generalized forces of the joints
   * \param CSOutput the constraint set for which the error should be computed
+  * \param update_kinematics whether the kinematics of the model should be
+  * updated from Q.
   * \param f_ext External forces acting on the body in base coordinates (optional, defaults to NULL)
   *
   * \note This function is normally called automatically in the various
@@ -1083,6 +1085,7 @@ void CalcConstrainedSystemVariables (
   const Math::VectorNd &QDot,
   const Math::VectorNd &Tau,
   ConstraintSet &CSOutput,
+  bool update_kinematics = true,
   std::vector<Math::SpatialVector> *f_ext = NULL
 );
 
@@ -1181,6 +1184,8 @@ void CalcAssemblyQDot(
  * \param Tau   actuations of the internal joints
  * \param CS    the description of all acting constraints
  * \param QDDotOutput accelerations of the internals joints
+ * \param update_kinematics whether the kinematics of the model should be
+  * updated from Q.
  * \param f_ext External forces acting on the body in base coordinates (optional, defaults to NULL)
  * \note During execution of this function values such as
  * ConstraintSet::force get modified and will contain the value
@@ -1195,6 +1200,7 @@ void ForwardDynamicsConstraintsDirect (
   const Math::VectorNd &Tau,
   ConstraintSet &CS,
   Math::VectorNd &QDDotOutput,
+  bool update_kinematics = true,
   std::vector<Math::SpatialVector> *f_ext = NULL
 );
 
@@ -1206,6 +1212,7 @@ void ForwardDynamicsConstraintsRangeSpaceSparse (
   const Math::VectorNd &Tau,
   ConstraintSet &CS,
   Math::VectorNd &QDDotOutput,
+  bool update_kinematics = true,
   std::vector<Math::SpatialVector> *f_ext = NULL
 );
 
@@ -1218,6 +1225,7 @@ void ForwardDynamicsConstraintsNullSpace (
   const Math::VectorNd &Tau,
   ConstraintSet &CS,
   Math::VectorNd &QDDotOutput,
+  bool update_kinematics = true,
   std::vector<Math::SpatialVector> *f_ext = NULL
 );
 #endif
@@ -1537,7 +1545,9 @@ void ForwardDynamicsContactsKokkevis (
                       satisfy the kinematic constraints (\f$\ddot{q}\f$ in the
                       above equation)
  \param TauOutput: N-element vector of generalized forces which satisfy the
-                   the equations of motion for this constrained system.                   
+                   the equations of motion for this constrained system.   
+ \param update_kinematics whether the kinematics of the model should be
+   updated from Q.                                   
  \param f_ext External forces acting on the body in base coordinates
         (optional, defaults to NULL)
 
@@ -1551,6 +1561,7 @@ void InverseDynamicsConstraintsRelaxed(
     ConstraintSet &CS,
     Math::VectorNd &QDDotOutput,
     Math::VectorNd &TauOutput,
+    bool update_kinematics=true,
     std::vector<Math::SpatialVector> *f_ext  = NULL);
 #endif
 /**
@@ -1700,6 +1711,8 @@ By projecting this onto the onto the \f$S\f$ and \f$P\f$ spaces
                       above equation)
  \param TauOutput: N-element vector of generalized forces which satisfy the
                    the equations of motion for this constrained system.
+ \param update_kinematics whether the kinematics of the model should be
+   updated from Q.                   
  \param f_ext External forces acting on the body in base coordinates
         (optional, defaults to NULL)
 
@@ -1714,6 +1727,7 @@ void InverseDynamicsConstraints(
     ConstraintSet &CS,
     Math::VectorNd &QDDotOutput,
     Math::VectorNd &TauOutput,
+    bool update_kinematics=true,
     std::vector<Math::SpatialVector> *f_ext  = NULL);
 
 #ifndef RBDL_USE_CASADI_MATH
@@ -1735,6 +1749,8 @@ void InverseDynamicsConstraints(
  \param QDot:  N-element vector of generalized velocities
  \param CS: Structure that contains information about the set of kinematic
             constraints.
+ \param update_kinematics whether the kinematics of the model should be
+   updated from Q.            
  \param f_ext External forces acting on the body in base coordinates
         (optional, defaults to NULL)
 */
@@ -1744,6 +1760,7 @@ bool isConstrainedSystemFullyActuated(
     const Math::VectorNd &Q,
     const Math::VectorNd &QDot,
     ConstraintSet &CS,
+    bool update_kinematics=true,
     std::vector<Math::SpatialVector> *f_ext  = NULL);
 #endif
 

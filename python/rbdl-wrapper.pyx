@@ -2343,13 +2343,13 @@ def CalcCenterOfMass (Model model,
         angular_momentum[2] = c_ang_momentum_ptr.data()[2]
         del c_ang_momentum_ptr
     
-    if qddot and com_acceleration is not None:
+    if qddot is not None and com_acceleration is not None:
         com_acceleration[0] = c_com_acc_ptr.data()[0]
         com_acceleration[1] = c_com_acc_ptr.data()[1]
         com_acceleration[2] = c_com_acc_ptr.data()[2]
         del c_com_acc_ptr
     
-    if qddot and change_of_angular_momentum is not None:
+    if qddot is not None and change_of_angular_momentum is not None:
         change_of_angular_momentum[0] = c_change_ang_momentum_ptr.data()[0]
         change_of_angular_momentum[1] = c_change_ang_momentum_ptr.data()[1]
         change_of_angular_momentum[2] = c_change_ang_momentum_ptr.data()[2]
@@ -2405,6 +2405,7 @@ def InverseDynamicsConstraints (Model model,
         ConstraintSet CS,
         np.ndarray[double, ndim=1, mode="c"] qddot_out,
         np.ndarray[double, ndim=1, mode="c"] tau,
+        update_kinematics=True,
         np.ndarray[double, ndim=2, mode="c"] f_external = None):
       
     cdef vector[crbdl.SpatialVector] *f_ext = new vector[crbdl.SpatialVector]()
@@ -2418,6 +2419,7 @@ def InverseDynamicsConstraints (Model model,
             CS.thisptr[0],
             <double*>qddot_out.data,
             <double*>tau.data,
+            update_kinematics,
             NULL
             )
         
@@ -2433,6 +2435,7 @@ def InverseDynamicsConstraints (Model model,
             CS.thisptr[0],
             <double*>qddot_out.data,
             <double*>tau.data,
+            update_kinematics,
             f_ext
             )
             
@@ -2445,6 +2448,7 @@ def InverseDynamicsConstraintsRelaxed (Model model,
         ConstraintSet CS,
         np.ndarray[double, ndim=1, mode="c"] qddot_out,
         np.ndarray[double, ndim=1, mode="c"] tau,
+        update_kinematics=True,
         np.ndarray[double, ndim=2, mode="c"] f_external = None):
       
     cdef vector[crbdl.SpatialVector] *f_ext = new vector[crbdl.SpatialVector]()
@@ -2458,6 +2462,7 @@ def InverseDynamicsConstraintsRelaxed (Model model,
             CS.thisptr[0],
             <double*>qddot_out.data,
             <double*>tau.data,
+            update_kinematics,
             NULL
             )
         
@@ -2473,6 +2478,7 @@ def InverseDynamicsConstraintsRelaxed (Model model,
             CS.thisptr[0],
             <double*>qddot_out.data,
             <double*>tau.data,
+            update_kinematics,
             f_ext
             )
             
@@ -2483,6 +2489,7 @@ def isConstrainedSystemFullyActuated(Model model,
     np.ndarray[double, ndim=1, mode="c"] q,
     np.ndarray[double, ndim=1, mode="c"] qdot,
     ConstraintSet CS,
+    update_kinematics=True,
     np.ndarray[double, ndim=2, mode="c"] f_external = None):
 
     cdef vector[crbdl.SpatialVector] *f_ext = new vector[crbdl.SpatialVector]()
@@ -2492,6 +2499,7 @@ def isConstrainedSystemFullyActuated(Model model,
                 <double*>q.data,
                 <double*>qdot.data,
                 CS.thisptr[0],
+                update_kinematics,
                 NULL
                 )
     else:
@@ -2502,6 +2510,7 @@ def isConstrainedSystemFullyActuated(Model model,
                 <double*>q.data,
                 <double*>qdot.data,
                 CS.thisptr[0],
+                update_kinematics,
                 f_ext
                 )
 
@@ -2573,6 +2582,7 @@ def ForwardDynamicsConstraintsDirect (
         np.ndarray[double, ndim=1, mode="c"] tau,
         ConstraintSet CS,
         np.ndarray[double, ndim=1, mode="c"] qddot,
+        update_kinematics=True,
         np.ndarray[double, ndim=2, mode="c"] f_external = None):
       
     cdef vector[crbdl.SpatialVector] *f_ext = new vector[crbdl.SpatialVector]()
@@ -2586,6 +2596,7 @@ def ForwardDynamicsConstraintsDirect (
         <double*>tau.data,
         CS.thisptr[0],
         <double*>qddot.data,
+        update_kinematics,
         NULL
         )
     
@@ -2601,6 +2612,7 @@ def ForwardDynamicsConstraintsDirect (
             <double*>tau.data,
             CS.thisptr[0],
             <double*>qddot.data,
+            update_kinematics,
             f_ext
             )
             
