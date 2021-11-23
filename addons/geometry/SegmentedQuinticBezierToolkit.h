@@ -36,6 +36,7 @@
 */
 #include <vector>
 #include <rbdl/rbdl_math.h>
+#include <rbdl/rbdl_config.h>
 #include "Function.h"
 
 /**
@@ -173,7 +174,7 @@ namespace RigidBodyDynamics {
   namespace Addons {
   namespace Geometry{
 
-class SegmentedQuinticBezierToolkit
+class RBDL_ADDON_DLLAPI SegmentedQuinticBezierToolkit
 {
 
 

@@ -1,5 +1,5 @@
-RBDL - Rigid Body Dynamics Library
-Copyright (c) 2011-2020 Martin Felis <martin@fysx.org>
+RBDL ORB - Rigid Body Dynamics Library (ORB Version)
+Copyright (c) 2018-2021 Felix Richter <felix.richter@informatik.uni-heidelberg.de>
 
 Introduction
 ============
@@ -35,8 +35,15 @@ To create the documentation simply run
 which will generate the documentation in the subdirectory ./doc/html. The main page will then
 be located in ./doc/html/index.html.
 
-Getting RBDL
-============
+VCPKG package manager (for Windows, Linux and Mac)
+==================================================
+As of 08-2021 `rbdl-orb` is part of microsofts vcpkg, a tool to manage c++ dependencies on all major operating systems.
+The luamodel and urdfmodel addon are installed via vcpkg as well, other addons may be added in the future as well.
+
+Install vcpkg by making a local clone from its GitHub repo [https://github.com/Microsoft/vcpkg](https://github.com/Microsoft/vcpkg). Then run the vcpkg-bootstrapper script to set it up. For detailed installation instructions, see [Install vcpkg](https://docs.microsoft.com/en-us/cpp/build/install-vcpkg). To integrate vcpkg with your Visual Studio or Visual Studio Code development environment, see [Integrate vcpkg](https://docs.microsoft.com/en-us/cpp/build/integrate-vcpkg). Then, to use vcpkg to install or update a library, see [Manage libraries with vcpkg](https://docs.microsoft.com/en-us/cpp/build/manage-libraries-with-vcpkg). For more information about vcpkg commands, see [vcpkg command-line reference](https://docs.microsoft.com/en-us/cpp/build/vcpkg-command-line-reference).
+
+Building RBDL from Source
+=========================
 
 The official rbdl-orb git repository can be cloned from
 ```
@@ -199,10 +206,10 @@ at which point you will see full list of build options for RBDL. We recommend th
   - Install Ipopt. One of the easier ways to do this is to follow these instructions from [Ipopt's online documentation](https://www.coin-or.org/Ipopt/documentation/node12.html#SECTION00042300000000000000) which guides you through the process. Instructions to build the code appear in the README located in the Ipopt folder
   - Configure RBDL's cmake file with these flags set to 'On'
   ```
-          RBDL_BUILD_ADDON_GEOMETRY        ON                                           
-          RBDL_BUILD_ADDON_LUAMODEL        ON                                           
-          RBDL_BUILD_ADDON_MUSCLE          ON                                          
-          RBDL_BUILD_ADDON_MUSCLE_FITTING  ON  
+          RBDL_BUILD_ADDON_GEOMETRY        ON
+          RBDL_BUILD_ADDON_LUAMODEL        ON
+          RBDL_BUILD_ADDON_MUSCLE          ON
+          RBDL_BUILD_ADDON_MUSCLE_FITTING  ON
   ```
     
   - Set the CUSTOM_IPOPT_PATH to the main Ipopt directory.

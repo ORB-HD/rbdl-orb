@@ -12,11 +12,7 @@
  * causes the classes in this file not to be explicitly exported. Instead
  * they are already implicitly exported.
  */
-#if defined(WIN32) && defined(rbdl_EXPORTS)
 #define RBDL_TEMPLATE_DLLAPI
-#else
-#define RBDL_TEMPLATE_DLLAPI RBDL_DLLAPI
-#endif
 
 EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION(Eigen::Vector2d)
 EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION(Eigen::Vector3d)
@@ -209,6 +205,61 @@ class RBDL_TEMPLATE_DLLAPI SpatialVector_t : public Eigen::Matrix<double, 6, 1>
       Base::_check_template_params();
 
       (*this) << v0, v1, v2, v3, v4, v5;
+    }
+};
+
+class RBDL_TEMPLATE_DLLAPI Matrix4_t : public Eigen::Matrix<double, 4, 4>
+{
+  public:
+    typedef Eigen::Matrix<double, 4, 4> Base;
+
+    template<typename OtherDerived>
+      Matrix4_t(const Eigen::MatrixBase<OtherDerived>& other)
+      : Eigen::Matrix<double, 4, 4>(other)
+      {}
+
+    template<typename OtherDerived>
+      Matrix4_t& operator=(const Eigen::MatrixBase<OtherDerived>& other)
+      {
+        this->Base::operator=(other);
+        return *this;
+      }
+
+    EIGEN_STRONG_INLINE Matrix4_t()
+    {}
+
+    EIGEN_STRONG_INLINE Matrix4_t(
+        const Scalar& m00, const Scalar& m01, const Scalar& m02, const Scalar& m03,
+        const Scalar& m10, const Scalar& m11, const Scalar& m12, const Scalar& m13,
+        const Scalar& m20, const Scalar& m21, const Scalar& m22, const Scalar& m23,
+        const Scalar& m30, const Scalar& m31, const Scalar& m32, const Scalar& m33
+        )
+    {
+      Base::_check_template_params();
+
+      (*this)
+        << m00, m01, m02, m03
+        , m10, m11, m12, m13
+        , m20, m21, m22, m23
+        , m30, m31, m32, m33
+        ;
+    }
+
+    void set(
+        const Scalar& m00, const Scalar& m01, const Scalar& m02, const Scalar& m03,
+        const Scalar& m10, const Scalar& m11, const Scalar& m12, const Scalar& m13,
+        const Scalar& m20, const Scalar& m21, const Scalar& m22, const Scalar& m23,
+        const Scalar& m30, const Scalar& m31, const Scalar& m32, const Scalar& m33
+        )
+    {
+      Base::_check_template_params();
+
+      (*this)
+        << m00, m01, m02, m03
+        , m10, m11, m12, m13
+        , m20, m21, m22, m23
+        , m30, m31, m32, m33
+        ;
     }
 };
 

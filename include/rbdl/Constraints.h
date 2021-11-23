@@ -942,9 +942,11 @@ struct RBDL_DLLAPI ConstraintSet {
   Math::VectorNd py;
   Math::VectorNd pz;
 
+#ifndef RBDL_USE_CASADI_MATH
   /// Workspace for the QR decomposition of the null-space method
   Eigen::HouseholderQR<Math::MatrixNd> GT_qr;
   Eigen::FullPivHouseholderQR<Math::MatrixNd> GPT_full_qr;
+#endif
 
   Math::MatrixNd GT_qr_Q;
   Math::MatrixNd GPT;
@@ -1068,6 +1070,8 @@ void CalcConstraintsVelocityError(
   * \param QDot the generalized velocities of the joints
   * \param Tau the generalized forces of the joints
   * \param CSOutput the constraint set for which the error should be computed
+  * \param update_kinematics whether the kinematics of the model should be
+  * updated from Q.
   * \param f_ext External forces acting on the body in base coordinates (optional, defaults to NULL)
   *
   * \note This function is normally called automatically in the various
@@ -1081,9 +1085,11 @@ void CalcConstrainedSystemVariables (
   const Math::VectorNd &QDot,
   const Math::VectorNd &Tau,
   ConstraintSet &CSOutput,
+  bool update_kinematics = true,
   std::vector<Math::SpatialVector> *f_ext = NULL
 );
 
+#ifndef RBDL_USE_CASADI_MATH
 /** \brief Computes a feasible initial value of the generalized joint positions.
   * 
   * \param model the model
@@ -1110,6 +1116,7 @@ bool CalcAssemblyQ(
   double tolerance = 1e-12,
   unsigned int max_iter = 100
 );
+#endif
 
 /** \brief Computes a feasible initial value of the generalized joint velocities.
   * 
@@ -1177,6 +1184,8 @@ void CalcAssemblyQDot(
  * \param Tau   actuations of the internal joints
  * \param CS    the description of all acting constraints
  * \param QDDotOutput accelerations of the internals joints
+ * \param update_kinematics whether the kinematics of the model should be
+  * updated from Q.
  * \param f_ext External forces acting on the body in base coordinates (optional, defaults to NULL)
  * \note During execution of this function values such as
  * ConstraintSet::force get modified and will contain the value
@@ -1191,6 +1200,7 @@ void ForwardDynamicsConstraintsDirect (
   const Math::VectorNd &Tau,
   ConstraintSet &CS,
   Math::VectorNd &QDDotOutput,
+  bool update_kinematics = true,
   std::vector<Math::SpatialVector> *f_ext = NULL
 );
 
@@ -1202,9 +1212,11 @@ void ForwardDynamicsConstraintsRangeSpaceSparse (
   const Math::VectorNd &Tau,
   ConstraintSet &CS,
   Math::VectorNd &QDDotOutput,
+  bool update_kinematics = true,
   std::vector<Math::SpatialVector> *f_ext = NULL
 );
 
+#ifndef RBDL_USE_CASADI_MATH
 RBDL_DLLAPI
 void ForwardDynamicsConstraintsNullSpace (
   Model &model,
@@ -1213,8 +1225,10 @@ void ForwardDynamicsConstraintsNullSpace (
   const Math::VectorNd &Tau,
   ConstraintSet &CS,
   Math::VectorNd &QDDotOutput,
+  bool update_kinematics = true,
   std::vector<Math::SpatialVector> *f_ext = NULL
 );
+#endif
 
 /** \brief Computes forward dynamics that accounts for active contacts in 
  *  ConstraintSet.
@@ -1292,7 +1306,7 @@ void ForwardDynamicsContactsKokkevis (
 );
 
 
-
+#ifndef RBDL_USE_CASADI_MATH
 /**
  @brief A relaxed inverse-dynamics operator that can be applied to
         under-actuated or fully-actuated constrained multibody systems.
@@ -1531,7 +1545,9 @@ void ForwardDynamicsContactsKokkevis (
                       satisfy the kinematic constraints (\f$\ddot{q}\f$ in the
                       above equation)
  \param TauOutput: N-element vector of generalized forces which satisfy the
-                   the equations of motion for this constrained system.                   
+                   the equations of motion for this constrained system.   
+ \param update_kinematics whether the kinematics of the model should be
+   updated from Q.                                   
  \param f_ext External forces acting on the body in base coordinates
         (optional, defaults to NULL)
 
@@ -1545,8 +1561,9 @@ void InverseDynamicsConstraintsRelaxed(
     ConstraintSet &CS,
     Math::VectorNd &QDDotOutput,
     Math::VectorNd &TauOutput,
+    bool update_kinematics=true,
     std::vector<Math::SpatialVector> *f_ext  = NULL);
-
+#endif
 /**
  @brief An inverse-dynamics operator that can be applied to fully-actuated
         constrained systems.
@@ -1694,6 +1711,8 @@ By projecting this onto the onto the \f$S\f$ and \f$P\f$ spaces
                       above equation)
  \param TauOutput: N-element vector of generalized forces which satisfy the
                    the equations of motion for this constrained system.
+ \param update_kinematics whether the kinematics of the model should be
+   updated from Q.                   
  \param f_ext External forces acting on the body in base coordinates
         (optional, defaults to NULL)
 
@@ -1708,8 +1727,10 @@ void InverseDynamicsConstraints(
     ConstraintSet &CS,
     Math::VectorNd &QDDotOutput,
     Math::VectorNd &TauOutput,
+    bool update_kinematics=true,
     std::vector<Math::SpatialVector> *f_ext  = NULL);
 
+#ifndef RBDL_USE_CASADI_MATH
 /**
   \brief A method to evaluate if the constrained system is fully actuated.
 
@@ -1728,6 +1749,8 @@ void InverseDynamicsConstraints(
  \param QDot:  N-element vector of generalized velocities
  \param CS: Structure that contains information about the set of kinematic
             constraints.
+ \param update_kinematics whether the kinematics of the model should be
+   updated from Q.            
  \param f_ext External forces acting on the body in base coordinates
         (optional, defaults to NULL)
 */
@@ -1737,7 +1760,9 @@ bool isConstrainedSystemFullyActuated(
     const Math::VectorNd &Q,
     const Math::VectorNd &QDot,
     ConstraintSet &CS,
+    bool update_kinematics=true,
     std::vector<Math::SpatialVector> *f_ext  = NULL);
+#endif
 
 /** \brief Computes contact gain by constructing and solving the full lagrangian 
  *  equation
@@ -1812,6 +1837,7 @@ void ComputeConstraintImpulsesRangeSpaceSparse (
   Math::VectorNd &QDotPlusOutput
 );
 
+#ifndef RBDL_USE_CASADI_MATH
 /** \brief Resolves contact gain using SolveContactSystemNullSpace()
  * \param model rigid body model
  * \param Q     state vector of the internal joints
@@ -1827,6 +1853,7 @@ void ComputeConstraintImpulsesNullSpace (
   ConstraintSet &CS,
   Math::VectorNd &QDotPlusOutput
 );
+#endif
 
 /** \brief Solves the full contact system directly, i.e. simultaneously for 
  *  contact forces and joint accelerations.
